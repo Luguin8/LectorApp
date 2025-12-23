@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View, ScrollView, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, Stack } from 'expo-router';
-import { Asset } from 'expo-asset';
-import * as FileSystem from 'expo-file-system/legacy';
+
+// YA NO NECESITAMOS NI ASSET NI FILESYSTEM
+// import { Asset } from 'expo-asset';
+// import * as FileSystem from 'expo-file-system/legacy';
 
 import books from '../../data/biblioteca.json';
 import { bookFiles } from '../../utils/bookLoader';
 
 export default function ReaderScreen() {
     const { id } = useLocalSearchParams();
-    const [chapters, setChapters] = useState([]); // Ahora guardamos un array de capítulos
+    const [chapters, setChapters] = useState([]);
     const [loading, setLoading] = useState(true);
 
     const bookData = books.find((b) => b.id === id);
@@ -18,24 +20,21 @@ export default function ReaderScreen() {
         loadBookContent();
     }, [id]);
 
-    const loadBookContent = async () => {
+    const loadBookContent = () => { // Ya no necesita ser async
         try {
-            const bookFile = bookFiles[id];
-            if (!bookFile) return;
+            const bookContent = bookFiles[id]; // Esto YA ES el array de capítulos
 
-            const asset = Asset.fromModule(bookFile);
-            await asset.downloadAsync();
-            const text = await FileSystem.readAsStringAsync(asset.localUri || asset.uri);
+            if (!bookContent) {
+                alert("Error: No se encontró el contenido del libro.");
+                return;
+            }
 
-            // TRUCO SENIOR:
-            // Como el archivo original del cliente puede tener saltos de línea raros (\n)
-            // o formato sucio, parseamos el JSON y limpiamos el texto al vuelo.
-            const jsonContent = JSON.parse(text);
-            setChapters(jsonContent);
+            // Como ya es un objeto JSON, lo guardamos directo
+            setChapters(bookContent);
 
         } catch (error) {
-            console.error("Error:", error);
-            alert("Error al procesar el formato del libro.");
+            console.error("Error cargando libro:", error);
+            alert("Hubo un error al mostrar el libro.");
         } finally {
             setLoading(false);
         }
@@ -54,21 +53,17 @@ export default function ReaderScreen() {
             ) : (
                 <ScrollView style={styles.scrollView}>
                     <View style={styles.textContainer}>
-                        {/* Renderizamos cada capítulo uno abajo del otro (Scroll Infinito) */}
                         {chapters.map((chapter, index) => (
                             <View key={index} style={styles.chapterContainer}>
-                                {/* Título del Capítulo (si existe en el JSON) */}
                                 {chapter.title && (
                                     <Text style={styles.chapterTitle}>{chapter.title}</Text>
                                 )}
 
-                                {/* Contenido del Capítulo */}
                                 <Text style={styles.paragraph}>
-                                    {/* Reemplazamos los \\n literales por saltos de línea reales */}
+                                    {/* Manejo de saltos de línea por si acaso */}
                                     {chapter.content ? chapter.content.replace(/\\n/g, '\n\n') : ''}
                                 </Text>
 
-                                {/* Separador visual entre capítulos */}
                                 <View style={styles.separator} />
                             </View>
                         ))}
@@ -84,9 +79,7 @@ const styles = StyleSheet.create({
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     scrollView: { flex: 1 },
     textContainer: { padding: 20, paddingBottom: 50 },
-
     chapterContainer: { marginBottom: 30 },
-
     chapterTitle: {
         fontSize: 22,
         fontWeight: 'bold',
@@ -95,14 +88,12 @@ const styles = StyleSheet.create({
         marginTop: 10,
         textAlign: 'center'
     },
-
     paragraph: {
         fontSize: 18,
-        lineHeight: 30, // Un poco más de aire para leer mejor
+        lineHeight: 30,
         color: '#333',
         textAlign: 'left',
     },
-
     separator: {
         height: 1,
         backgroundColor: '#eee',
