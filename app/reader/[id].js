@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View, ScrollView, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, Stack } from 'expo-router';
 import { Asset } from 'expo-asset';
-// CORRECCIÓN SENIOR: Usamos la importación legacy para SDK 54+
 import * as FileSystem from 'expo-file-system/legacy';
 
 import books from '../../data/biblioteca.json';
@@ -10,7 +9,7 @@ import { bookFiles } from '../../utils/bookLoader';
 
 export default function ReaderScreen() {
     const { id } = useLocalSearchParams();
-    const [content, setContent] = useState('');
+    const [chapters, setChapters] = useState([]); // Ahora guardamos un array de capítulos
     const [loading, setLoading] = useState(true);
 
     const bookData = books.find((b) => b.id === id);
@@ -22,23 +21,21 @@ export default function ReaderScreen() {
     const loadBookContent = async () => {
         try {
             const bookFile = bookFiles[id];
-
-            if (!bookFile) {
-                setContent("Error: Libro no encontrado en el sistema de archivos.");
-                setLoading(false);
-                return;
-            }
+            if (!bookFile) return;
 
             const asset = Asset.fromModule(bookFile);
             await asset.downloadAsync();
-
-            // Ahora esta función sí funcionará porque la importamos desde 'legacy'
             const text = await FileSystem.readAsStringAsync(asset.localUri || asset.uri);
-            setContent(text);
+
+            // TRUCO SENIOR:
+            // Como el archivo original del cliente puede tener saltos de línea raros (\n)
+            // o formato sucio, parseamos el JSON y limpiamos el texto al vuelo.
+            const jsonContent = JSON.parse(text);
+            setChapters(jsonContent);
 
         } catch (error) {
-            console.error("Error leyendo libro:", error);
-            setContent("Hubo un error técnico al cargar el libro. Intente nuevamente.");
+            console.error("Error:", error);
+            alert("Error al procesar el formato del libro.");
         } finally {
             setLoading(false);
         }
@@ -53,13 +50,29 @@ export default function ReaderScreen() {
             {loading ? (
                 <View style={styles.center}>
                     <ActivityIndicator size="large" color="#f4511e" />
-                    <Text style={{ marginTop: 10 }}>Cargando libro...</Text>
                 </View>
             ) : (
-                <ScrollView style={styles.scrollView} contentContainerStyle={styles.textContainer}>
-                    <Text style={styles.paragraph}>
-                        {content}
-                    </Text>
+                <ScrollView style={styles.scrollView}>
+                    <View style={styles.textContainer}>
+                        {/* Renderizamos cada capítulo uno abajo del otro (Scroll Infinito) */}
+                        {chapters.map((chapter, index) => (
+                            <View key={index} style={styles.chapterContainer}>
+                                {/* Título del Capítulo (si existe en el JSON) */}
+                                {chapter.title && (
+                                    <Text style={styles.chapterTitle}>{chapter.title}</Text>
+                                )}
+
+                                {/* Contenido del Capítulo */}
+                                <Text style={styles.paragraph}>
+                                    {/* Reemplazamos los \\n literales por saltos de línea reales */}
+                                    {chapter.content ? chapter.content.replace(/\\n/g, '\n\n') : ''}
+                                </Text>
+
+                                {/* Separador visual entre capítulos */}
+                                <View style={styles.separator} />
+                            </View>
+                        ))}
+                    </View>
                 </ScrollView>
             )}
         </View>
@@ -67,26 +80,34 @@ export default function ReaderScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#fff',
+    container: { flex: 1, backgroundColor: '#fff' },
+    center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    scrollView: { flex: 1 },
+    textContainer: { padding: 20, paddingBottom: 50 },
+
+    chapterContainer: { marginBottom: 30 },
+
+    chapterTitle: {
+        fontSize: 22,
+        fontWeight: 'bold',
+        color: '#f4511e',
+        marginBottom: 15,
+        marginTop: 10,
+        textAlign: 'center'
     },
-    center: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    scrollView: {
-        flex: 1,
-    },
-    textContainer: {
-        padding: 20,
-        paddingBottom: 50,
-    },
+
     paragraph: {
         fontSize: 18,
-        lineHeight: 28,
+        lineHeight: 30, // Un poco más de aire para leer mejor
         color: '#333',
         textAlign: 'left',
     },
+
+    separator: {
+        height: 1,
+        backgroundColor: '#eee',
+        marginVertical: 30,
+        width: '80%',
+        alignSelf: 'center'
+    }
 });
