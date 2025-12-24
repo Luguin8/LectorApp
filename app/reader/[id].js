@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { StyleSheet, Text, View, ActivityIndicator, TouchableOpacity, FlatList } from 'react-native';
 import { useLocalSearchParams, Stack } from 'expo-router';
-// Importamos esto para saber cuánto espacio dejar abajo (evita tapar botones del cel)
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useReader } from '../../context/ReaderContext';
 import books from '../../data/biblioteca.json';
@@ -9,13 +8,17 @@ import { bookFiles } from '../../utils/bookLoader';
 
 export default function ReaderScreen() {
     const { id } = useLocalSearchParams();
-    // Hook para detectar los márgenes seguros del dispositivo
     const insets = useSafeAreaInsets();
 
-    const { theme, fontSize, fontFamily, toggleTheme, changeFontSize, isReady } = useReader();
+    // Traemos todo del contexto
+    const { theme, fontSize, fontFamily, toggleTheme, changeFontSize, isReady, saveProgress, lastChapter } = useReader();
 
     const [chapters, setChapters] = useState([]);
     const [loading, setLoading] = useState(true);
+
+    const flatListRef = useRef(null);
+    // Usamos esto para asegurar que el scroll ocurra solo una vez
+    const hasScrolledRef = useRef(false);
 
     const bookData = books.find((b) => b.id === id);
 
@@ -42,13 +45,66 @@ export default function ReaderScreen() {
             setChapters(bookContent);
         } catch (error) {
             console.error("Error cargando libro:", error);
-            alert("Hubo un error al mostrar el libro.");
         } finally {
             setLoading(false);
         }
     };
 
-    if (!bookData) return <View style={[styles.center, { backgroundColor: bgColors.main }]}><Text style={{ color: bgColors.text }}>Libro no existe</Text></View>;
+    // --- LÓGICA DE RESTAURACIÓN (SCROLL) ---
+    // Esta función se llama cuando la lista termina de "pintarse" en pantalla
+    const onListLayout = () => {
+        if (loading || chapters.length === 0 || hasScrolledRef.current) return;
+
+        // Verificamos si hay algo guardado para ESTE libro
+        if (lastChapter && lastChapter.bookId === id) {
+            console.log("🔄 INTENTANDO RESTAURAR al capítulo:", lastChapter.chapterIndex);
+
+            // Pequeño delay de seguridad
+            setTimeout(() => {
+                flatListRef.current?.scrollToIndex({
+                    index: lastChapter.chapterIndex,
+                    animated: false,
+                    viewPosition: 0
+                });
+                hasScrolledRef.current = true;
+            }, 100);
+        } else {
+            console.log("ℹ️ No hay progreso guardado previo para este libro.");
+        }
+    };
+
+    // Manejo de errores si el scroll falla (común en listas largas)
+    const onScrollToIndexFailed = (info) => {
+        console.log("⚠️ Falló el scroll directo, reintentando...", info);
+        const wait = new Promise(resolve => setTimeout(resolve, 500));
+        wait.then(() => {
+            flatListRef.current?.scrollToIndex({ index: info.index, animated: false });
+        });
+    };
+
+    // --- LÓGICA DE GUARDADO ---
+    // Usamos useCallback para que la función sea estable
+    const onViewableItemsChanged = useCallback(({ viewableItems }) => {
+        if (viewableItems.length > 0) {
+            const visibleItem = viewableItems[0];
+            // Log para ver si detecta el cambio
+            // console.log("👀 Viendo capítulo:", visibleItem.index);
+
+            if (visibleItem.index !== null && visibleItem.index !== undefined) {
+                // Guardamos solo si cambió
+                saveProgress(id, visibleItem.index);
+            }
+        }
+    }, [id, saveProgress]); // Dependencias importantes
+
+    // Configuración de visibilidad
+    const viewabilityConfig = useRef({
+        itemVisiblePercentThreshold: 50, // El capitulo debe verse al 50% para contar
+        minimumViewTime: 500 // Debe quedarse 0.5s ahí para contar (evita guardar mientras scrolleas rápido)
+    }).current;
+
+
+    if (!bookData) return <View style={[styles.center, { backgroundColor: bgColors.main }]}><Text>No existe</Text></View>;
 
     return (
         <View style={[styles.container, { backgroundColor: bgColors.main }]}>
@@ -63,15 +119,18 @@ export default function ReaderScreen() {
                     <ActivityIndicator size="large" color="#f4511e" />
                 </View>
             ) : (
-                // CAMBIO 1: Usamos FlatList en lugar de ScrollView para eliminar el LAG
                 <FlatList
+                    ref={flatListRef}
                     data={chapters}
                     keyExtractor={(item, index) => index.toString()}
-                    contentContainerStyle={{
-                        padding: 20,
-                        // Damos espacio extra abajo para que el texto no quede tapado por la barra
-                        paddingBottom: 150
-                    }}
+                    contentContainerStyle={{ padding: 20, paddingBottom: 150 }}
+
+                    // Conectamos la lógica nueva
+                    onLayout={onListLayout}
+                    onScrollToIndexFailed={onScrollToIndexFailed}
+                    onViewableItemsChanged={onViewableItemsChanged}
+                    viewabilityConfig={viewabilityConfig}
+
                     renderItem={({ item: chapter }) => (
                         <View style={styles.chapterContainer}>
                             {chapter.title && (
@@ -97,23 +156,21 @@ export default function ReaderScreen() {
             )}
 
             {/* BARRA DE CONTROLES */}
-            {/* CAMBIO 2: Padding dinámico basado en 'insets.bottom' */}
             <View style={[
                 styles.controlsBar,
                 {
                     backgroundColor: bgColors.controls,
                     borderTopColor: isNight ? '#444' : '#ccc',
-                    paddingBottom: Math.max(insets.bottom, 20) // Mínimo 20px, o más si el cel lo requiere
+                    paddingBottom: Math.max(insets.bottom, 20)
                 }
             ]}>
-
                 <TouchableOpacity onPress={() => changeFontSize('decrease')} style={styles.controlBtn}>
                     <Text style={[styles.btnText, { color: bgColors.controlText }]}>A-</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity onPress={toggleTheme} style={[styles.controlBtn, { flex: 2 }]}>
                     <Text style={[styles.btnText, { color: bgColors.controlText }]}>
-                        {isNight ? 'Modo Día ☀️' : 'Modo Noche 🌙'}
+                        {isNight ? 'Día ☀️' : 'Noche 🌙'}
                     </Text>
                 </TouchableOpacity>
 
@@ -128,7 +185,6 @@ export default function ReaderScreen() {
 const styles = StyleSheet.create({
     container: { flex: 1 },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    // Eliminamos styles.scrollView y styles.textContainer porque FlatList los maneja diferente
     chapterContainer: { marginBottom: 30 },
     chapterTitle: {
         fontSize: 22,
@@ -149,7 +205,6 @@ const styles = StyleSheet.create({
     controlsBar: {
         flexDirection: 'row',
         padding: 15,
-        // Eliminamos paddingBottom fijo aquí, lo controlamos inline arriba
         position: 'absolute',
         bottom: 0,
         left: 0,
