@@ -24,7 +24,7 @@ export default function ReaderScreen() {
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [currentVisibleIndex, setCurrentVisibleIndex] = useState(0);
 
-    // VARIABLE PARA ACTIVAR/DESACTIVAR PUBLICIDAD FÁCILMENTE
+    // CONFIGURACIÓN DE PUBLICIDAD
     const showAds = true;
 
     const flatListRef = useRef(null);
@@ -42,7 +42,7 @@ export default function ReaderScreen() {
         modalBg: isNight ? '#222' : '#fff',
         modalOverlay: isNight ? 'rgba(0,0,0,0.8)' : 'rgba(0,0,0,0.5)',
         border: isNight ? '#444' : '#eee',
-        // Color para el banner de publicidad simulado
+        // Colores para los anuncios
         adBackground: isNight ? '#2a2a2a' : '#f0f0f0',
         adBorder: isNight ? '#444' : '#ccc'
     };
@@ -194,13 +194,12 @@ export default function ReaderScreen() {
                 )
             }} />
 
-            {/* --- AQUÍ ESTÁ EL ESPACIO PUBLICITARIO (MOCK) --- */}
-            {/* Se muestra solo si showAds es true y no está cargando */}
+            {/* --- AD BANNER SUPERIOR (320x50) --- */}
             {showAds && !loading && (
                 <View style={[styles.adContainer, { backgroundColor: bgColors.adBackground, borderColor: bgColors.adBorder }]}>
-                    <Text style={{ color: bgColors.text, fontSize: 12, marginBottom: 4 }}>PUBLICIDAD</Text>
+                    <Text style={{ color: bgColors.text, fontSize: 10, marginBottom: 2 }}>PUBLICIDAD</Text>
                     <View style={{ width: 320, height: 50, backgroundColor: '#ccc', justifyContent: 'center', alignItems: 'center' }}>
-                        <Text style={{ color: '#666', fontWeight: 'bold' }}>Banner de Google Ads (320x50)</Text>
+                        <Text style={{ color: '#666', fontWeight: 'bold' }}>Banner Top (320x50)</Text>
                     </View>
                 </View>
             )}
@@ -247,6 +246,26 @@ export default function ReaderScreen() {
                             ]}>
                                 {chapter.content ? chapter.content.replace(/\\n/g, '\n\n') : ''}
                             </Text>
+
+                            {/* --- AD RECTANGULAR AL FINAL DEL CAPÍTULO (300x250) --- */}
+                            {/* Insertamos esto al terminar el texto y antes del separador */}
+                            {showAds && (
+                                <View style={[styles.adContainer, {
+                                    backgroundColor: bgColors.adBackground,
+                                    borderColor: bgColors.adBorder,
+                                    marginVertical: 30, // Separación generosa del texto
+                                    padding: 10,
+                                    borderRadius: 10,
+                                    borderWidth: 1
+                                }]}>
+                                    <Text style={{ color: bgColors.text, fontSize: 10, marginBottom: 4 }}>ESPACIO PUBLICITARIO</Text>
+                                    <View style={{ width: 300, height: 250, backgroundColor: '#dcdcdc', justifyContent: 'center', alignItems: 'center' }}>
+                                        <Text style={{ color: '#666', fontWeight: 'bold' }}>Anuncio Rectangular</Text>
+                                        <Text style={{ color: '#666', fontSize: 12 }}>(300 x 250)</Text>
+                                    </View>
+                                </View>
+                            )}
+
                             <View style={[styles.separator, { backgroundColor: isNight ? '#444' : '#eee' }]} />
                         </View>
                     )}
@@ -340,11 +359,11 @@ export default function ReaderScreen() {
 const styles = StyleSheet.create({
     container: { flex: 1 },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    // ESTILOS NUEVOS PARA EL AD
+    // Estilos actualizados para los Ads
     adContainer: {
         alignItems: 'center',
         paddingVertical: 10,
-        borderBottomWidth: 1,
+        // No ponemos borderBottomWidth fijo aquí porque en el ad grande usamos borderWidth completo
     },
     chapterContainer: { marginBottom: 30 },
     chapterHeader: {
