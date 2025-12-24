@@ -17,7 +17,7 @@ export default function Layout() {
                     },
                 }}
             >
-                <Stack.Screen name="index" options={{ title: 'Biblioteca' }} />
+                <Stack.Screen name="index" options={{ title: 'Biblioteca ReadFlow' }} />
                 {/* Aquí la pantalla del lector recibirá configuración extra después */}
             </Stack>
         </ReaderProvider>
