@@ -2,8 +2,8 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { StyleSheet, Text, View, ActivityIndicator, TouchableOpacity, FlatList, Modal } from 'react-native';
 import { useLocalSearchParams, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-// Importamos iconos
 import { Ionicons } from '@expo/vector-icons';
+import * as Speech from 'expo-speech';
 
 import { useReader } from '../../context/ReaderContext';
 import books from '../../data/biblioteca.json';
@@ -18,9 +18,14 @@ export default function ReaderScreen() {
     const [chapters, setChapters] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    // ESTADO PARA EL MENÚ
     const [menuVisible, setMenuVisible] = useState(false);
     const [showOnlyBookmarks, setShowOnlyBookmarks] = useState(false);
+
+    const [isSpeaking, setIsSpeaking] = useState(false);
+    const [currentVisibleIndex, setCurrentVisibleIndex] = useState(0);
+
+    // VARIABLE PARA ACTIVAR/DESACTIVAR PUBLICIDAD FÁCILMENTE
+    const showAds = true;
 
     const flatListRef = useRef(null);
     const hasScrolledRef = useRef(false);
@@ -36,11 +41,17 @@ export default function ReaderScreen() {
         controlText: isNight ? '#fff' : '#000',
         modalBg: isNight ? '#222' : '#fff',
         modalOverlay: isNight ? 'rgba(0,0,0,0.8)' : 'rgba(0,0,0,0.5)',
-        border: isNight ? '#444' : '#eee'
+        border: isNight ? '#444' : '#eee',
+        // Color para el banner de publicidad simulado
+        adBackground: isNight ? '#2a2a2a' : '#f0f0f0',
+        adBorder: isNight ? '#444' : '#ccc'
     };
 
     useEffect(() => {
         loadBookContent();
+        return () => {
+            Speech.stop();
+        };
     }, [id]);
 
     const loadBookContent = () => {
@@ -58,10 +69,53 @@ export default function ReaderScreen() {
         }
     };
 
+    const chunkText = (text, limit = 3000) => {
+        const chunks = [];
+        let start = 0;
+        while (start < text.length) {
+            let end = Math.min(start + limit, text.length);
+            if (end < text.length) {
+                const lastSpace = text.lastIndexOf(' ', end);
+                if (lastSpace > start) {
+                    end = lastSpace;
+                }
+            }
+            chunks.push(text.slice(start, end));
+            start = end + 1;
+        }
+        return chunks;
+    };
+
+    const handleSpeech = () => {
+        if (isSpeaking) {
+            Speech.stop();
+            setIsSpeaking(false);
+        } else {
+            const textToRead = chapters[currentVisibleIndex]?.content;
+            if (textToRead) {
+                const textChunks = chunkText(textToRead);
+                setIsSpeaking(true);
+                textChunks.forEach((chunk, index) => {
+                    const isLastChunk = index === textChunks.length - 1;
+                    Speech.speak(chunk, {
+                        language: 'es-ES',
+                        pitch: 1.0,
+                        rate: 0.9,
+                        onDone: isLastChunk ? () => setIsSpeaking(false) : undefined,
+                        onStopped: () => setIsSpeaking(false),
+                        onError: (e) => {
+                            console.error("Error Speech:", e);
+                            setIsSpeaking(false);
+                        }
+                    });
+                });
+            }
+        }
+    };
+
     const onListLayout = () => {
         if (loading || chapters.length === 0 || hasScrolledRef.current) return;
         if (lastChapter && lastChapter.bookId === id) {
-            console.log("🔄 Restaurando capítulo:", lastChapter.chapterIndex);
             setTimeout(() => {
                 flatListRef.current?.scrollToIndex({
                     index: lastChapter.chapterIndex,
@@ -85,6 +139,7 @@ export default function ReaderScreen() {
             const visibleItem = viewableItems[0];
             if (visibleItem.index !== null && visibleItem.index !== undefined) {
                 saveProgress(id, visibleItem.index);
+                setCurrentVisibleIndex(visibleItem.index);
             }
         }
     }, [id, saveProgress]);
@@ -99,24 +154,21 @@ export default function ReaderScreen() {
         return bookBookmarks.includes(index);
     };
 
-    // FUNCION PARA IR A UN CAPÍTULO DESDE EL MENÚ
     const goToChapter = (index) => {
-        setMenuVisible(false); // Cerramos menú
-        // Pequeño timeout para que cierre el modal antes de saltar
+        setMenuVisible(false);
+        Speech.stop();
+        setIsSpeaking(false);
         setTimeout(() => {
             flatListRef.current?.scrollToIndex({
                 index: index,
-                animated: true, // Animado queda mejor aquí
+                animated: true,
                 viewPosition: 0
             });
         }, 300);
     };
 
-    // FILTRADO DE CAPÍTULOS PARA EL MENÚ
     const getFilteredChapters = () => {
         if (!showOnlyBookmarks) return chapters.map((c, i) => ({ ...c, originalIndex: i }));
-
-        // Si activamos el filtro, solo mostramos los que están en bookmarks
         return chapters
             .map((c, i) => ({ ...c, originalIndex: i }))
             .filter(item => isBookmarked(item.originalIndex));
@@ -130,13 +182,28 @@ export default function ReaderScreen() {
                 title: bookData.title,
                 headerStyle: { backgroundColor: isNight ? '#000' : '#f4511e' },
                 headerTintColor: '#fff',
-                // AGREGAMOS EL BOTÓN DE MENÚ A LA DERECHA
                 headerRight: () => (
-                    <TouchableOpacity onPress={() => setMenuVisible(true)} style={{ marginRight: 10 }}>
-                        <Ionicons name="list" size={28} color="#fff" />
-                    </TouchableOpacity>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <TouchableOpacity onPress={handleSpeech} style={{ marginRight: 15 }}>
+                            <Ionicons name={isSpeaking ? "stop-circle" : "headset"} size={28} color="#fff" />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => setMenuVisible(true)} style={{ marginRight: 10 }}>
+                            <Ionicons name="list" size={28} color="#fff" />
+                        </TouchableOpacity>
+                    </View>
                 )
             }} />
+
+            {/* --- AQUÍ ESTÁ EL ESPACIO PUBLICITARIO (MOCK) --- */}
+            {/* Se muestra solo si showAds es true y no está cargando */}
+            {showAds && !loading && (
+                <View style={[styles.adContainer, { backgroundColor: bgColors.adBackground, borderColor: bgColors.adBorder }]}>
+                    <Text style={{ color: bgColors.text, fontSize: 12, marginBottom: 4 }}>PUBLICIDAD</Text>
+                    <View style={{ width: 320, height: 50, backgroundColor: '#ccc', justifyContent: 'center', alignItems: 'center' }}>
+                        <Text style={{ color: '#666', fontWeight: 'bold' }}>Banner de Google Ads (320x50)</Text>
+                    </View>
+                </View>
+            )}
 
             {loading || !isReady ? (
                 <View style={styles.center}>
@@ -186,7 +253,6 @@ export default function ReaderScreen() {
                 />
             )}
 
-            {/* BARRA DE CONTROLES INFERIOR */}
             <View style={[
                 styles.controlsBar,
                 {
@@ -210,7 +276,6 @@ export default function ReaderScreen() {
                 </TouchableOpacity>
             </View>
 
-            {/* --- MODAL DE ÍNDICE / MENÚ --- */}
             <Modal
                 animationType="slide"
                 transparent={true}
@@ -219,8 +284,6 @@ export default function ReaderScreen() {
             >
                 <View style={[styles.modalOverlay, { backgroundColor: bgColors.modalOverlay }]}>
                     <View style={[styles.modalContent, { backgroundColor: bgColors.modalBg }]}>
-
-                        {/* Cabecera del Modal */}
                         <View style={[styles.modalHeader, { borderBottomColor: bgColors.border }]}>
                             <Text style={[styles.modalTitle, { color: bgColors.text }]}>Índice</Text>
                             <TouchableOpacity onPress={() => setMenuVisible(false)}>
@@ -228,7 +291,6 @@ export default function ReaderScreen() {
                             </TouchableOpacity>
                         </View>
 
-                        {/* Filtro de Solo Favoritos */}
                         <TouchableOpacity
                             style={[
                                 styles.filterBtn,
@@ -242,7 +304,6 @@ export default function ReaderScreen() {
                             </Text>
                         </TouchableOpacity>
 
-                        {/* Lista de Capítulos en el Modal */}
                         <FlatList
                             data={getFilteredChapters()}
                             keyExtractor={(item) => item.originalIndex.toString()}
@@ -251,7 +312,6 @@ export default function ReaderScreen() {
                                     style={[styles.menuItem, { borderBottomColor: bgColors.border }]}
                                     onPress={() => goToChapter(item.originalIndex)}
                                 >
-                                    {/* 1. Agregamos flex: 1 para asegurar que el texto sea clickeable en todo el ancho */}
                                     <Text style={[
                                         styles.menuItemText,
                                         {
@@ -262,8 +322,6 @@ export default function ReaderScreen() {
                                         {item.title || `Capítulo ${item.originalIndex + 1}`}
                                     </Text>
 
-                                    {/* 2. Envolvemos el icono en una View con pointerEvents="none" */}
-                                    {/* Esto evita que la estrella bloquee el click de navegación */}
                                     {isBookmarked(item.originalIndex) && (
                                         <View pointerEvents="none">
                                             <Ionicons name="star" size={20} color="#FFD700" />
@@ -275,7 +333,6 @@ export default function ReaderScreen() {
                     </View>
                 </View>
             </Modal>
-
         </View>
     );
 }
@@ -283,6 +340,12 @@ export default function ReaderScreen() {
 const styles = StyleSheet.create({
     container: { flex: 1 },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    // ESTILOS NUEVOS PARA EL AD
+    adContainer: {
+        alignItems: 'center',
+        paddingVertical: 10,
+        borderBottomWidth: 1,
+    },
     chapterContainer: { marginBottom: 30 },
     chapterHeader: {
         flexDirection: 'row',
@@ -331,13 +394,12 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: 'bold',
     },
-    // ESTILOS DEL MODAL
     modalOverlay: {
         flex: 1,
         justifyContent: 'flex-end',
     },
     modalContent: {
-        height: '80%', // Ocupa el 80% de la pantalla desde abajo
+        height: '80%',
         borderTopLeftRadius: 20,
         borderTopRightRadius: 20,
         padding: 20,
