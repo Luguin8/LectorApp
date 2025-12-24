@@ -1,8 +1,8 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { StyleSheet, Text, View, ActivityIndicator, TouchableOpacity, FlatList } from 'react-native';
+import { StyleSheet, Text, View, ActivityIndicator, TouchableOpacity, FlatList, Modal } from 'react-native';
 import { useLocalSearchParams, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-// Importamos iconos para la estrellita
+// Importamos iconos
 import { Ionicons } from '@expo/vector-icons';
 
 import { useReader } from '../../context/ReaderContext';
@@ -13,11 +13,14 @@ export default function ReaderScreen() {
     const { id } = useLocalSearchParams();
     const insets = useSafeAreaInsets();
 
-    // Traemos 'bookmarks' y 'toggleBookmark'
     const { theme, fontSize, fontFamily, toggleTheme, changeFontSize, isReady, saveProgress, lastChapter, bookmarks, toggleBookmark } = useReader();
 
     const [chapters, setChapters] = useState([]);
     const [loading, setLoading] = useState(true);
+
+    // ESTADO PARA EL MENÚ
+    const [menuVisible, setMenuVisible] = useState(false);
+    const [showOnlyBookmarks, setShowOnlyBookmarks] = useState(false);
 
     const flatListRef = useRef(null);
     const hasScrolledRef = useRef(false);
@@ -30,7 +33,10 @@ export default function ReaderScreen() {
         text: isNight ? '#d1d1d1' : '#333333',
         title: isNight ? '#f4511e' : '#f4511e',
         controls: isNight ? '#333' : '#eee',
-        controlText: isNight ? '#fff' : '#000'
+        controlText: isNight ? '#fff' : '#000',
+        modalBg: isNight ? '#222' : '#fff',
+        modalOverlay: isNight ? 'rgba(0,0,0,0.8)' : 'rgba(0,0,0,0.5)',
+        border: isNight ? '#444' : '#eee'
     };
 
     useEffect(() => {
@@ -88,10 +94,32 @@ export default function ReaderScreen() {
         minimumViewTime: 500
     }).current;
 
-    // Helper para saber si un capitulo está marcado
     const isBookmarked = (index) => {
         const bookBookmarks = bookmarks[id] || [];
         return bookBookmarks.includes(index);
+    };
+
+    // FUNCION PARA IR A UN CAPÍTULO DESDE EL MENÚ
+    const goToChapter = (index) => {
+        setMenuVisible(false); // Cerramos menú
+        // Pequeño timeout para que cierre el modal antes de saltar
+        setTimeout(() => {
+            flatListRef.current?.scrollToIndex({
+                index: index,
+                animated: true, // Animado queda mejor aquí
+                viewPosition: 0
+            });
+        }, 300);
+    };
+
+    // FILTRADO DE CAPÍTULOS PARA EL MENÚ
+    const getFilteredChapters = () => {
+        if (!showOnlyBookmarks) return chapters.map((c, i) => ({ ...c, originalIndex: i }));
+
+        // Si activamos el filtro, solo mostramos los que están en bookmarks
+        return chapters
+            .map((c, i) => ({ ...c, originalIndex: i }))
+            .filter(item => isBookmarked(item.originalIndex));
     };
 
     if (!bookData) return <View style={styles.center}><Text>No existe</Text></View>;
@@ -101,7 +129,13 @@ export default function ReaderScreen() {
             <Stack.Screen options={{
                 title: bookData.title,
                 headerStyle: { backgroundColor: isNight ? '#000' : '#f4511e' },
-                headerTintColor: '#fff'
+                headerTintColor: '#fff',
+                // AGREGAMOS EL BOTÓN DE MENÚ A LA DERECHA
+                headerRight: () => (
+                    <TouchableOpacity onPress={() => setMenuVisible(true)} style={{ marginRight: 10 }}>
+                        <Ionicons name="list" size={28} color="#fff" />
+                    </TouchableOpacity>
+                )
             }} />
 
             {loading || !isReady ? (
@@ -120,8 +154,6 @@ export default function ReaderScreen() {
                     viewabilityConfig={viewabilityConfig}
                     renderItem={({ item: chapter, index }) => (
                         <View style={styles.chapterContainer}>
-
-                            {/* HEADER DEL CAPÍTULO CON BOTÓN DE FAVORITO */}
                             <View style={styles.chapterHeader}>
                                 {chapter.title && (
                                     <Text style={[styles.chapterTitle, { color: bgColors.title, fontFamily, flex: 1 }]}>
@@ -154,6 +186,7 @@ export default function ReaderScreen() {
                 />
             )}
 
+            {/* BARRA DE CONTROLES INFERIOR */}
             <View style={[
                 styles.controlsBar,
                 {
@@ -176,6 +209,73 @@ export default function ReaderScreen() {
                     <Text style={[styles.btnText, { color: bgColors.controlText }]}>A+</Text>
                 </TouchableOpacity>
             </View>
+
+            {/* --- MODAL DE ÍNDICE / MENÚ --- */}
+            <Modal
+                animationType="slide"
+                transparent={true}
+                visible={menuVisible}
+                onRequestClose={() => setMenuVisible(false)}
+            >
+                <View style={[styles.modalOverlay, { backgroundColor: bgColors.modalOverlay }]}>
+                    <View style={[styles.modalContent, { backgroundColor: bgColors.modalBg }]}>
+
+                        {/* Cabecera del Modal */}
+                        <View style={[styles.modalHeader, { borderBottomColor: bgColors.border }]}>
+                            <Text style={[styles.modalTitle, { color: bgColors.text }]}>Índice</Text>
+                            <TouchableOpacity onPress={() => setMenuVisible(false)}>
+                                <Ionicons name="close" size={28} color={bgColors.text} />
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Filtro de Solo Favoritos */}
+                        <TouchableOpacity
+                            style={[
+                                styles.filterBtn,
+                                { backgroundColor: showOnlyBookmarks ? '#f4511e' : 'transparent', borderColor: '#f4511e' }
+                            ]}
+                            onPress={() => setShowOnlyBookmarks(!showOnlyBookmarks)}
+                        >
+                            <Ionicons name="star" size={18} color={showOnlyBookmarks ? '#fff' : '#f4511e'} style={{ marginRight: 8 }} />
+                            <Text style={{ color: showOnlyBookmarks ? '#fff' : '#f4511e', fontWeight: 'bold' }}>
+                                {showOnlyBookmarks ? "Mostrando solo Favoritos" : "Mostrar solo Favoritos"}
+                            </Text>
+                        </TouchableOpacity>
+
+                        {/* Lista de Capítulos en el Modal */}
+                        <FlatList
+                            data={getFilteredChapters()}
+                            keyExtractor={(item) => item.originalIndex.toString()}
+                            renderItem={({ item }) => (
+                                <TouchableOpacity
+                                    style={[styles.menuItem, { borderBottomColor: bgColors.border }]}
+                                    onPress={() => goToChapter(item.originalIndex)}
+                                >
+                                    {/* 1. Agregamos flex: 1 para asegurar que el texto sea clickeable en todo el ancho */}
+                                    <Text style={[
+                                        styles.menuItemText,
+                                        {
+                                            color: isBookmarked(item.originalIndex) ? '#f4511e' : bgColors.text,
+                                            flex: 1
+                                        }
+                                    ]}>
+                                        {item.title || `Capítulo ${item.originalIndex + 1}`}
+                                    </Text>
+
+                                    {/* 2. Envolvemos el icono en una View con pointerEvents="none" */}
+                                    {/* Esto evita que la estrella bloquee el click de navegación */}
+                                    {isBookmarked(item.originalIndex) && (
+                                        <View pointerEvents="none">
+                                            <Ionicons name="star" size={20} color="#FFD700" />
+                                        </View>
+                                    )}
+                                </TouchableOpacity>
+                            )}
+                        />
+                    </View>
+                </View>
+            </Modal>
+
         </View>
     );
 }
@@ -184,7 +284,6 @@ const styles = StyleSheet.create({
     container: { flex: 1 },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     chapterContainer: { marginBottom: 30 },
-    // Estilos nuevos para el titulo + icono
     chapterHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -195,7 +294,7 @@ const styles = StyleSheet.create({
     chapterTitle: {
         fontSize: 22,
         fontWeight: 'bold',
-        textAlign: 'center' // O left, según prefieras
+        textAlign: 'center'
     },
     bookmarkBtn: {
         padding: 5,
@@ -231,5 +330,52 @@ const styles = StyleSheet.create({
     btnText: {
         fontSize: 16,
         fontWeight: 'bold',
+    },
+    // ESTILOS DEL MODAL
+    modalOverlay: {
+        flex: 1,
+        justifyContent: 'flex-end',
+    },
+    modalContent: {
+        height: '80%', // Ocupa el 80% de la pantalla desde abajo
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        padding: 20,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+        elevation: 5,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingBottom: 15,
+        borderBottomWidth: 1,
+        marginBottom: 10
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+    },
+    filterBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 10,
+        borderRadius: 8,
+        borderWidth: 1,
+        marginBottom: 15
+    },
+    menuItem: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: 15,
+        borderBottomWidth: 1,
+    },
+    menuItemText: {
+        fontSize: 16,
     }
 });
