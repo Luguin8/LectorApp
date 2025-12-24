@@ -2,11 +2,10 @@ import React, { createContext, useState, useEffect, useContext } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFonts, Merriweather_400Regular, Merriweather_700Bold } from '@expo-google-fonts/merriweather';
 
-// Definimos los valores por defecto
 const defaultSettings = {
-    theme: 'day', // 'day' | 'night'
+    theme: 'day',
     fontSize: 18,
-    fontFamily: 'System', // Cambiará a 'Merriweather' cuando cargue
+    fontFamily: 'System',
 };
 
 export const ReaderContext = createContext();
@@ -14,17 +13,18 @@ export const ReaderContext = createContext();
 export const ReaderProvider = ({ children }) => {
     const [theme, setTheme] = useState(defaultSettings.theme);
     const [fontSize, setFontSize] = useState(defaultSettings.fontSize);
-    const [bookmarks, setBookmarks] = useState([]); // Array de IDs de capítulos marcados
-    const [lastChapter, setLastChapter] = useState(null); // { bookId: 'libro1', chapterIndex: 0 }
+
+    // CAMBIO: Iniciamos como objeto vacío para soportar múltiples libros
+    const [bookmarks, setBookmarks] = useState({});
+
+    const [lastChapter, setLastChapter] = useState(null);
     const [isReady, setIsReady] = useState(false);
 
-    // Cargamos la fuente de Google
     let [fontsLoaded] = useFonts({
         Merriweather_400Regular,
         Merriweather_700Bold,
     });
 
-    // AL INICIAR: Recuperamos todo de la memoria del celular
     useEffect(() => {
         loadSettings();
     }, []);
@@ -38,7 +38,17 @@ export const ReaderProvider = ({ children }) => {
 
             if (savedTheme) setTheme(savedTheme);
             if (savedSize) setFontSize(parseInt(savedSize));
-            if (savedBookmarks) setBookmarks(JSON.parse(savedBookmarks));
+
+            if (savedBookmarks) {
+                const parsed = JSON.parse(savedBookmarks);
+                // Validación extra: Si es un array (formato viejo), lo reseteamos a objeto
+                if (Array.isArray(parsed)) {
+                    setBookmarks({});
+                } else {
+                    setBookmarks(parsed);
+                }
+            }
+
             if (savedProgress) setLastChapter(JSON.parse(savedProgress));
 
             setIsReady(true);
@@ -46,8 +56,6 @@ export const ReaderProvider = ({ children }) => {
             console.error("Error cargando configuración:", e);
         }
     };
-
-    // FUNCIONES PARA USAR EN LA APP
 
     const toggleTheme = async () => {
         const newTheme = theme === 'day' ? 'night' : 'day';
@@ -70,18 +78,26 @@ export const ReaderProvider = ({ children }) => {
         await AsyncStorage.setItem('lastProgress', JSON.stringify(progress));
     };
 
-    const toggleBookmark = async (chapterIndex) => {
-        let newBookmarks;
-        if (bookmarks.includes(chapterIndex)) {
-            newBookmarks = bookmarks.filter(b => b !== chapterIndex);
+    // CAMBIO IMPORTANTE: Recibimos bookId para guardar independientemente
+    const toggleBookmark = async (bookId, chapterIndex) => {
+        const currentBookBookmarks = bookmarks[bookId] || [];
+        let newBookBookmarks;
+
+        if (currentBookBookmarks.includes(chapterIndex)) {
+            // Si ya existe, lo quitamos
+            newBookBookmarks = currentBookBookmarks.filter(id => id !== chapterIndex);
         } else {
-            newBookmarks = [...bookmarks, chapterIndex];
+            // Si no existe, lo agregamos
+            newBookBookmarks = [...currentBookBookmarks, chapterIndex];
         }
+
+        // Actualizamos el objeto global de bookmarks
+        const newBookmarks = { ...bookmarks, [bookId]: newBookBookmarks };
+
         setBookmarks(newBookmarks);
         await AsyncStorage.setItem('bookmarks', JSON.stringify(newBookmarks));
     };
 
-    // Exportamos todo para que lo usen los componentes
     return (
         <ReaderContext.Provider value={{
             theme,
@@ -100,5 +116,4 @@ export const ReaderProvider = ({ children }) => {
     );
 };
 
-// Hook personalizado para no importar useContext en todos lados
 export const useReader = () => useContext(ReaderContext);

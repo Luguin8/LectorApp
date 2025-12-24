@@ -2,6 +2,9 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { StyleSheet, Text, View, ActivityIndicator, TouchableOpacity, FlatList } from 'react-native';
 import { useLocalSearchParams, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+// Importamos iconos para la estrellita
+import { Ionicons } from '@expo/vector-icons';
+
 import { useReader } from '../../context/ReaderContext';
 import books from '../../data/biblioteca.json';
 import { bookFiles } from '../../utils/bookLoader';
@@ -10,14 +13,13 @@ export default function ReaderScreen() {
     const { id } = useLocalSearchParams();
     const insets = useSafeAreaInsets();
 
-    // Traemos todo del contexto
-    const { theme, fontSize, fontFamily, toggleTheme, changeFontSize, isReady, saveProgress, lastChapter } = useReader();
+    // Traemos 'bookmarks' y 'toggleBookmark'
+    const { theme, fontSize, fontFamily, toggleTheme, changeFontSize, isReady, saveProgress, lastChapter, bookmarks, toggleBookmark } = useReader();
 
     const [chapters, setChapters] = useState([]);
     const [loading, setLoading] = useState(true);
 
     const flatListRef = useRef(null);
-    // Usamos esto para asegurar que el scroll ocurra solo una vez
     const hasScrolledRef = useRef(false);
 
     const bookData = books.find((b) => b.id === id);
@@ -50,16 +52,10 @@ export default function ReaderScreen() {
         }
     };
 
-    // --- LÓGICA DE RESTAURACIÓN (SCROLL) ---
-    // Esta función se llama cuando la lista termina de "pintarse" en pantalla
     const onListLayout = () => {
         if (loading || chapters.length === 0 || hasScrolledRef.current) return;
-
-        // Verificamos si hay algo guardado para ESTE libro
         if (lastChapter && lastChapter.bookId === id) {
-            console.log("🔄 INTENTANDO RESTAURAR al capítulo:", lastChapter.chapterIndex);
-
-            // Pequeño delay de seguridad
+            console.log("🔄 Restaurando capítulo:", lastChapter.chapterIndex);
             setTimeout(() => {
                 flatListRef.current?.scrollToIndex({
                     index: lastChapter.chapterIndex,
@@ -68,43 +64,37 @@ export default function ReaderScreen() {
                 });
                 hasScrolledRef.current = true;
             }, 100);
-        } else {
-            console.log("ℹ️ No hay progreso guardado previo para este libro.");
         }
     };
 
-    // Manejo de errores si el scroll falla (común en listas largas)
     const onScrollToIndexFailed = (info) => {
-        console.log("⚠️ Falló el scroll directo, reintentando...", info);
         const wait = new Promise(resolve => setTimeout(resolve, 500));
         wait.then(() => {
             flatListRef.current?.scrollToIndex({ index: info.index, animated: false });
         });
     };
 
-    // --- LÓGICA DE GUARDADO ---
-    // Usamos useCallback para que la función sea estable
     const onViewableItemsChanged = useCallback(({ viewableItems }) => {
         if (viewableItems.length > 0) {
             const visibleItem = viewableItems[0];
-            // Log para ver si detecta el cambio
-            // console.log("👀 Viendo capítulo:", visibleItem.index);
-
             if (visibleItem.index !== null && visibleItem.index !== undefined) {
-                // Guardamos solo si cambió
                 saveProgress(id, visibleItem.index);
             }
         }
-    }, [id, saveProgress]); // Dependencias importantes
+    }, [id, saveProgress]);
 
-    // Configuración de visibilidad
     const viewabilityConfig = useRef({
-        itemVisiblePercentThreshold: 50, // El capitulo debe verse al 50% para contar
-        minimumViewTime: 500 // Debe quedarse 0.5s ahí para contar (evita guardar mientras scrolleas rápido)
+        itemVisiblePercentThreshold: 0,
+        minimumViewTime: 500
     }).current;
 
+    // Helper para saber si un capitulo está marcado
+    const isBookmarked = (index) => {
+        const bookBookmarks = bookmarks[id] || [];
+        return bookBookmarks.includes(index);
+    };
 
-    if (!bookData) return <View style={[styles.center, { backgroundColor: bgColors.main }]}><Text>No existe</Text></View>;
+    if (!bookData) return <View style={styles.center}><Text>No existe</Text></View>;
 
     return (
         <View style={[styles.container, { backgroundColor: bgColors.main }]}>
@@ -124,20 +114,29 @@ export default function ReaderScreen() {
                     data={chapters}
                     keyExtractor={(item, index) => index.toString()}
                     contentContainerStyle={{ padding: 20, paddingBottom: 150 }}
-
-                    // Conectamos la lógica nueva
                     onLayout={onListLayout}
                     onScrollToIndexFailed={onScrollToIndexFailed}
                     onViewableItemsChanged={onViewableItemsChanged}
                     viewabilityConfig={viewabilityConfig}
-
-                    renderItem={({ item: chapter }) => (
+                    renderItem={({ item: chapter, index }) => (
                         <View style={styles.chapterContainer}>
-                            {chapter.title && (
-                                <Text style={[styles.chapterTitle, { color: bgColors.title, fontFamily }]}>
-                                    {chapter.title}
-                                </Text>
-                            )}
+
+                            {/* HEADER DEL CAPÍTULO CON BOTÓN DE FAVORITO */}
+                            <View style={styles.chapterHeader}>
+                                {chapter.title && (
+                                    <Text style={[styles.chapterTitle, { color: bgColors.title, fontFamily, flex: 1 }]}>
+                                        {chapter.title}
+                                    </Text>
+                                )}
+                                <TouchableOpacity onPress={() => toggleBookmark(id, index)} style={styles.bookmarkBtn}>
+                                    <Ionicons
+                                        name={isBookmarked(index) ? "star" : "star-outline"}
+                                        size={28}
+                                        color={isBookmarked(index) ? "#FFD700" : (isNight ? "#555" : "#ccc")}
+                                    />
+                                </TouchableOpacity>
+                            </View>
+
                             <Text style={[
                                 styles.paragraph,
                                 {
@@ -155,7 +154,6 @@ export default function ReaderScreen() {
                 />
             )}
 
-            {/* BARRA DE CONTROLES */}
             <View style={[
                 styles.controlsBar,
                 {
@@ -186,12 +184,22 @@ const styles = StyleSheet.create({
     container: { flex: 1 },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     chapterContainer: { marginBottom: 30 },
+    // Estilos nuevos para el titulo + icono
+    chapterHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 15,
+        marginTop: 10,
+    },
     chapterTitle: {
         fontSize: 22,
         fontWeight: 'bold',
-        marginBottom: 15,
-        marginTop: 10,
-        textAlign: 'center'
+        textAlign: 'center' // O left, según prefieras
+    },
+    bookmarkBtn: {
+        padding: 5,
+        marginLeft: 10
     },
     paragraph: {
         textAlign: 'left',
