@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View, FlatList, TouchableOpacity } from 'react-native';
 import { Link } from 'expo-router';
-// Importamos los datos (asegurate de crear este archivo en el paso C)
+// Importamos los datos
 import books from '../data/biblioteca.json';
 
 export default function Home() {
@@ -10,7 +10,6 @@ export default function Home() {
                 data={books}
                 keyExtractor={(item) => item.id}
                 renderItem={({ item }) => (
-                    // Por ahora es un botón simple, luego lo haremos tarjeta linda
                     <Link href={`/reader/${item.id}`} asChild>
                         <TouchableOpacity style={styles.bookItem}>
                             <View style={[styles.coverPlaceholder, { backgroundColor: item.coverColor }]} />
@@ -20,6 +19,14 @@ export default function Home() {
                             </View>
                         </TouchableOpacity>
                     </Link>
+                )}
+                // NUEVO: Footer con el aviso de derechos
+                ListFooterComponent={() => (
+                    <View style={styles.footerContainer}>
+                        <Text style={styles.footerText}>
+                            Traducción libre de derechos de autor
+                        </Text>
+                    </View>
                 )}
             />
         </View>
@@ -54,5 +61,15 @@ const styles = StyleSheet.create({
     },
     bookAuthor: {
         color: '#666',
+    },
+    footerContainer: {
+        padding: 20,
+        alignItems: 'center',
+        marginTop: 10
+    },
+    footerText: {
+        color: '#888',
+        fontSize: 12,
+        textAlign: 'center'
     }
 });

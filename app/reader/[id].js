@@ -9,6 +9,10 @@ import { useReader } from '../../context/ReaderContext';
 import books from '../../data/biblioteca.json';
 import { bookFiles } from '../../utils/bookLoader';
 
+// --- COLORES PRINCIPALES ---
+const PRIMARY_DAY = '#691a35';   // Bordó elegante
+const PRIMARY_NIGHT = '#81c784'; // Verde suave (buen contraste en fondo oscuro)
+
 export default function ReaderScreen() {
     const { id } = useLocalSearchParams();
     const insets = useSafeAreaInsets();
@@ -24,6 +28,9 @@ export default function ReaderScreen() {
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [currentVisibleIndex, setCurrentVisibleIndex] = useState(0);
 
+    // Estado para saber qué capitulo específico se está leyendo (borde de color)
+    const [readingChapterIndex, setReadingChapterIndex] = useState(null);
+
     // CONFIGURACIÓN DE PUBLICIDAD
     const showAds = true;
 
@@ -33,10 +40,14 @@ export default function ReaderScreen() {
     const bookData = books.find((b) => b.id === id);
 
     const isNight = theme === 'night';
+
+    // Definimos el color primario según el tema
+    const currentPrimary = isNight ? PRIMARY_NIGHT : PRIMARY_DAY;
+
     const bgColors = {
         main: isNight ? '#1a1a1a' : '#ffffff',
         text: isNight ? '#d1d1d1' : '#333333',
-        title: isNight ? '#f4511e' : '#f4511e',
+        title: currentPrimary, // Título usa el color principal
         controls: isNight ? '#333' : '#eee',
         controlText: isNight ? '#fff' : '#000',
         modalBg: isNight ? '#222' : '#fff',
@@ -44,7 +55,9 @@ export default function ReaderScreen() {
         border: isNight ? '#444' : '#eee',
         // Colores para los anuncios
         adBackground: isNight ? '#2a2a2a' : '#f0f0f0',
-        adBorder: isNight ? '#444' : '#ccc'
+        adBorder: isNight ? '#444' : '#ccc',
+        // El borde de lectura también usa el color principal
+        readingHighlight: currentPrimary
     };
 
     useEffect(() => {
@@ -90,22 +103,34 @@ export default function ReaderScreen() {
         if (isSpeaking) {
             Speech.stop();
             setIsSpeaking(false);
+            setReadingChapterIndex(null);
         } else {
-            const textToRead = chapters[currentVisibleIndex]?.content;
+            const indexToRead = currentVisibleIndex;
+            const textToRead = chapters[indexToRead]?.content;
+
             if (textToRead) {
+                setReadingChapterIndex(indexToRead);
                 const textChunks = chunkText(textToRead);
                 setIsSpeaking(true);
+
                 textChunks.forEach((chunk, index) => {
                     const isLastChunk = index === textChunks.length - 1;
                     Speech.speak(chunk, {
                         language: 'es-ES',
                         pitch: 1.0,
                         rate: 0.9,
-                        onDone: isLastChunk ? () => setIsSpeaking(false) : undefined,
-                        onStopped: () => setIsSpeaking(false),
+                        onDone: isLastChunk ? () => {
+                            setIsSpeaking(false);
+                            setReadingChapterIndex(null);
+                        } : undefined,
+                        onStopped: () => {
+                            setIsSpeaking(false);
+                            setReadingChapterIndex(null);
+                        },
                         onError: (e) => {
                             console.error("Error Speech:", e);
                             setIsSpeaking(false);
+                            setReadingChapterIndex(null);
                         }
                     });
                 });
@@ -158,6 +183,7 @@ export default function ReaderScreen() {
         setMenuVisible(false);
         Speech.stop();
         setIsSpeaking(false);
+        setReadingChapterIndex(null);
         setTimeout(() => {
             flatListRef.current?.scrollToIndex({
                 index: index,
@@ -180,7 +206,8 @@ export default function ReaderScreen() {
         <View style={[styles.container, { backgroundColor: bgColors.main }]}>
             <Stack.Screen options={{
                 title: bookData.title,
-                headerStyle: { backgroundColor: isNight ? '#000' : '#f4511e' },
+                // CAMBIO: Header negro en noche, BORDÓ en día
+                headerStyle: { backgroundColor: isNight ? '#000' : PRIMARY_DAY },
                 headerTintColor: '#fff',
                 headerRight: () => (
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -194,7 +221,7 @@ export default function ReaderScreen() {
                 )
             }} />
 
-            {/* --- AD BANNER SUPERIOR (320x50) --- */}
+            {/* --- AD BANNER SUPERIOR --- */}
             {showAds && !loading && (
                 <View style={[styles.adContainer, { backgroundColor: bgColors.adBackground, borderColor: bgColors.adBorder }]}>
                     <Text style={{ color: bgColors.text, fontSize: 10, marginBottom: 2 }}>PUBLICIDAD</Text>
@@ -206,7 +233,8 @@ export default function ReaderScreen() {
 
             {loading || !isReady ? (
                 <View style={styles.center}>
-                    <ActivityIndicator size="large" color="#f4511e" />
+                    {/* CAMBIO: Spinner usa el color primario */}
+                    <ActivityIndicator size="large" color={currentPrimary} />
                 </View>
             ) : (
                 <FlatList
@@ -219,7 +247,17 @@ export default function ReaderScreen() {
                     onViewableItemsChanged={onViewableItemsChanged}
                     viewabilityConfig={viewabilityConfig}
                     renderItem={({ item: chapter, index }) => (
-                        <View style={styles.chapterContainer}>
+                        <View style={[
+                            styles.chapterContainer,
+                            // Borde de lectura activa usa el color primario
+                            index === readingChapterIndex && {
+                                borderColor: bgColors.readingHighlight,
+                                borderWidth: 2,
+                                borderRadius: 8,
+                                padding: 8,
+                                borderStyle: 'solid'
+                            }
+                        ]}>
                             <View style={styles.chapterHeader}>
                                 {chapter.title && (
                                     <Text style={[styles.chapterTitle, { color: bgColors.title, fontFamily, flex: 1 }]}>
@@ -230,30 +268,34 @@ export default function ReaderScreen() {
                                     <Ionicons
                                         name={isBookmarked(index) ? "star" : "star-outline"}
                                         size={28}
+                                        // Favorito sigue siendo dorado, el outline gris
                                         color={isBookmarked(index) ? "#FFD700" : (isNight ? "#555" : "#ccc")}
                                     />
                                 </TouchableOpacity>
                             </View>
 
-                            <Text style={[
-                                styles.paragraph,
-                                {
-                                    fontSize: fontSize,
-                                    color: bgColors.text,
-                                    fontFamily: fontFamily,
-                                    lineHeight: fontSize * 1.5
-                                }
-                            ]}>
+                            <Text
+                                selectable={true}
+                                style={[
+                                    styles.paragraph,
+                                    {
+                                        fontSize: fontSize,
+                                        color: bgColors.text,
+                                        fontFamily: fontFamily,
+                                        lineHeight: fontSize * 1.5,
+                                        textAlign: 'justify'
+                                    }
+                                ]}
+                            >
                                 {chapter.content ? chapter.content.replace(/\\n/g, '\n\n') : ''}
                             </Text>
 
-                            {/* --- AD RECTANGULAR AL FINAL DEL CAPÍTULO (300x250) --- */}
-                            {/* Insertamos esto al terminar el texto y antes del separador */}
+                            {/* --- AD RECTANGULAR --- */}
                             {showAds && (
                                 <View style={[styles.adContainer, {
                                     backgroundColor: bgColors.adBackground,
                                     borderColor: bgColors.adBorder,
-                                    marginVertical: 30, // Separación generosa del texto
+                                    marginVertical: 30,
                                     padding: 10,
                                     borderRadius: 10,
                                     borderWidth: 1
@@ -313,12 +355,16 @@ export default function ReaderScreen() {
                         <TouchableOpacity
                             style={[
                                 styles.filterBtn,
-                                { backgroundColor: showOnlyBookmarks ? '#f4511e' : 'transparent', borderColor: '#f4511e' }
+                                {
+                                    // El botón de filtro usa el color primario (Bordó o Verde)
+                                    backgroundColor: showOnlyBookmarks ? currentPrimary : 'transparent',
+                                    borderColor: currentPrimary
+                                }
                             ]}
                             onPress={() => setShowOnlyBookmarks(!showOnlyBookmarks)}
                         >
-                            <Ionicons name="star" size={18} color={showOnlyBookmarks ? '#fff' : '#f4511e'} style={{ marginRight: 8 }} />
-                            <Text style={{ color: showOnlyBookmarks ? '#fff' : '#f4511e', fontWeight: 'bold' }}>
+                            <Ionicons name="star" size={18} color={showOnlyBookmarks ? (isNight ? '#000' : '#fff') : currentPrimary} style={{ marginRight: 8 }} />
+                            <Text style={{ color: showOnlyBookmarks ? (isNight ? '#000' : '#fff') : currentPrimary, fontWeight: 'bold' }}>
                                 {showOnlyBookmarks ? "Mostrando solo Favoritos" : "Mostrar solo Favoritos"}
                             </Text>
                         </TouchableOpacity>
@@ -334,7 +380,8 @@ export default function ReaderScreen() {
                                     <Text style={[
                                         styles.menuItemText,
                                         {
-                                            color: isBookmarked(item.originalIndex) ? '#f4511e' : bgColors.text,
+                                            // Texto destacado usa el color primario
+                                            color: isBookmarked(item.originalIndex) ? currentPrimary : bgColors.text,
                                             flex: 1
                                         }
                                     ]}>
@@ -359,11 +406,9 @@ export default function ReaderScreen() {
 const styles = StyleSheet.create({
     container: { flex: 1 },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    // Estilos actualizados para los Ads
     adContainer: {
         alignItems: 'center',
         paddingVertical: 10,
-        // No ponemos borderBottomWidth fijo aquí porque en el ad grande usamos borderWidth completo
     },
     chapterContainer: { marginBottom: 30 },
     chapterHeader: {
@@ -383,7 +428,7 @@ const styles = StyleSheet.create({
         marginLeft: 10
     },
     paragraph: {
-        textAlign: 'left',
+        textAlign: 'justify',
     },
     separator: {
         height: 1,
