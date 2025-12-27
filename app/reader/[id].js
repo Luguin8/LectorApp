@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { StyleSheet, Text, View, ActivityIndicator, TouchableOpacity, FlatList, Modal } from 'react-native';
+import { StyleSheet, Text, View, ActivityIndicator, TouchableOpacity, FlatList, Modal, Dimensions } from 'react-native';
 import { useLocalSearchParams, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,12 +10,14 @@ import books from '../../data/biblioteca.json';
 import { bookFiles } from '../../utils/bookLoader';
 
 // --- COLORES PRINCIPALES ---
-const PRIMARY_DAY = '#691a35';   // Bordó elegante
-const PRIMARY_NIGHT = '#81c784'; // Verde suave (buen contraste en fondo oscuro)
+const PRIMARY_DAY = '#691a35';
+const PRIMARY_NIGHT = '#81c784';
 
 export default function ReaderScreen() {
     const { id } = useLocalSearchParams();
     const insets = useSafeAreaInsets();
+    // Obtenemos ancho de pantalla para cálculos defensivos si hiciera falta
+    const { width } = Dimensions.get('window');
 
     const { theme, fontSize, fontFamily, toggleTheme, changeFontSize, isReady, saveProgress, lastChapter, bookmarks, toggleBookmark } = useReader();
 
@@ -28,10 +30,8 @@ export default function ReaderScreen() {
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [currentVisibleIndex, setCurrentVisibleIndex] = useState(0);
 
-    // Estado para saber qué capitulo específico se está leyendo (borde de color)
     const [readingChapterIndex, setReadingChapterIndex] = useState(null);
 
-    // CONFIGURACIÓN DE PUBLICIDAD
     const showAds = true;
 
     const flatListRef = useRef(null);
@@ -40,23 +40,19 @@ export default function ReaderScreen() {
     const bookData = books.find((b) => b.id === id);
 
     const isNight = theme === 'night';
-
-    // Definimos el color primario según el tema
     const currentPrimary = isNight ? PRIMARY_NIGHT : PRIMARY_DAY;
 
     const bgColors = {
         main: isNight ? '#1a1a1a' : '#ffffff',
         text: isNight ? '#d1d1d1' : '#333333',
-        title: currentPrimary, // Título usa el color principal
-        controls: isNight ? '#333' : '#eee',
+        title: currentPrimary,
+        controls: isNight ? '#333' : '#f2f2f2', // Un gris un pelín más oscuro para resaltar la barra
         controlText: isNight ? '#fff' : '#000',
         modalBg: isNight ? '#222' : '#fff',
         modalOverlay: isNight ? 'rgba(0,0,0,0.8)' : 'rgba(0,0,0,0.5)',
         border: isNight ? '#444' : '#eee',
-        // Colores para los anuncios
         adBackground: isNight ? '#2a2a2a' : '#f0f0f0',
         adBorder: isNight ? '#444' : '#ccc',
-        // El borde de lectura también usa el color principal
         readingHighlight: currentPrimary
     };
 
@@ -206,7 +202,6 @@ export default function ReaderScreen() {
         <View style={[styles.container, { backgroundColor: bgColors.main }]}>
             <Stack.Screen options={{
                 title: bookData.title,
-                // CAMBIO: Header negro en noche, BORDÓ en día
                 headerStyle: { backgroundColor: isNight ? '#000' : PRIMARY_DAY },
                 headerTintColor: '#fff',
                 headerRight: () => (
@@ -221,19 +216,17 @@ export default function ReaderScreen() {
                 )
             }} />
 
-            {/* --- AD BANNER SUPERIOR --- */}
             {showAds && !loading && (
                 <View style={[styles.adContainer, { backgroundColor: bgColors.adBackground, borderColor: bgColors.adBorder }]}>
-                    <Text style={{ color: bgColors.text, fontSize: 10, marginBottom: 2 }}>PUBLICIDAD</Text>
+                    <Text allowFontScaling={false} style={{ color: bgColors.text, fontSize: 10, marginBottom: 2 }}>PUBLICIDAD</Text>
                     <View style={{ width: 320, height: 50, backgroundColor: '#ccc', justifyContent: 'center', alignItems: 'center' }}>
-                        <Text style={{ color: '#666', fontWeight: 'bold' }}>Banner Top (320x50)</Text>
+                        <Text allowFontScaling={false} style={{ color: '#666', fontWeight: 'bold' }}>Banner Top (320x50)</Text>
                     </View>
                 </View>
             )}
 
             {loading || !isReady ? (
                 <View style={styles.center}>
-                    {/* CAMBIO: Spinner usa el color primario */}
                     <ActivityIndicator size="large" color={currentPrimary} />
                 </View>
             ) : (
@@ -241,7 +234,8 @@ export default function ReaderScreen() {
                     ref={flatListRef}
                     data={chapters}
                     keyExtractor={(item, index) => index.toString()}
-                    contentContainerStyle={{ padding: 20, paddingBottom: 150 }}
+                    // CORRECCIÓN 1: Padding Horizontal agresivo (30) para evitar cortes en bordes
+                    contentContainerStyle={{ paddingHorizontal: 30, paddingTop: 20, paddingBottom: 160 }}
                     onLayout={onListLayout}
                     onScrollToIndexFailed={onScrollToIndexFailed}
                     onViewableItemsChanged={onViewableItemsChanged}
@@ -249,7 +243,6 @@ export default function ReaderScreen() {
                     renderItem={({ item: chapter, index }) => (
                         <View style={[
                             styles.chapterContainer,
-                            // Borde de lectura activa usa el color primario
                             index === readingChapterIndex && {
                                 borderColor: bgColors.readingHighlight,
                                 borderWidth: 2,
@@ -260,7 +253,11 @@ export default function ReaderScreen() {
                         ]}>
                             <View style={styles.chapterHeader}>
                                 {chapter.title && (
-                                    <Text style={[styles.chapterTitle, { color: bgColors.title, fontFamily, flex: 1 }]}>
+                                    <Text
+                                        // CORRECCIÓN 2: Desactivar escalado de sistema en títulos
+                                        allowFontScaling={false}
+                                        style={[styles.chapterTitle, { color: bgColors.title, fontFamily, flex: 1 }]}
+                                    >
                                         {chapter.title}
                                     </Text>
                                 )}
@@ -268,7 +265,6 @@ export default function ReaderScreen() {
                                     <Ionicons
                                         name={isBookmarked(index) ? "star" : "star-outline"}
                                         size={28}
-                                        // Favorito sigue siendo dorado, el outline gris
                                         color={isBookmarked(index) ? "#FFD700" : (isNight ? "#555" : "#ccc")}
                                     />
                                 </TouchableOpacity>
@@ -276,6 +272,8 @@ export default function ReaderScreen() {
 
                             <Text
                                 selectable={true}
+                                // CORRECCIÓN 3: Desactivar escalado de sistema en el texto (nosotros controlamos el tamaño)
+                                allowFontScaling={false}
                                 style={[
                                     styles.paragraph,
                                     {
@@ -290,7 +288,6 @@ export default function ReaderScreen() {
                                 {chapter.content ? chapter.content.replace(/\\n/g, '\n\n') : ''}
                             </Text>
 
-                            {/* --- AD RECTANGULAR --- */}
                             {showAds && (
                                 <View style={[styles.adContainer, {
                                     backgroundColor: bgColors.adBackground,
@@ -300,10 +297,10 @@ export default function ReaderScreen() {
                                     borderRadius: 10,
                                     borderWidth: 1
                                 }]}>
-                                    <Text style={{ color: bgColors.text, fontSize: 10, marginBottom: 4 }}>ESPACIO PUBLICITARIO</Text>
+                                    <Text allowFontScaling={false} style={{ color: bgColors.text, fontSize: 10, marginBottom: 4 }}>ESPACIO PUBLICITARIO</Text>
                                     <View style={{ width: 300, height: 250, backgroundColor: '#dcdcdc', justifyContent: 'center', alignItems: 'center' }}>
-                                        <Text style={{ color: '#666', fontWeight: 'bold' }}>Anuncio Rectangular</Text>
-                                        <Text style={{ color: '#666', fontSize: 12 }}>(300 x 250)</Text>
+                                        <Text allowFontScaling={false} style={{ color: '#666', fontWeight: 'bold' }}>Anuncio Rectangular</Text>
+                                        <Text allowFontScaling={false} style={{ color: '#666', fontSize: 12 }}>(300 x 250)</Text>
                                     </View>
                                 </View>
                             )}
@@ -319,21 +316,28 @@ export default function ReaderScreen() {
                 {
                     backgroundColor: bgColors.controls,
                     borderTopColor: isNight ? '#444' : '#ccc',
-                    paddingBottom: Math.max(insets.bottom, 20)
+                    paddingBottom: Math.max(insets.bottom, 20),
+                    // CORRECCIÓN 4: Sombra y zIndex para asegurar que se vea
+                    shadowColor: "#000",
+                    shadowOffset: { width: 0, height: -3 },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 3,
+                    elevation: 10,
+                    zIndex: 999
                 }
             ]}>
                 <TouchableOpacity onPress={() => changeFontSize('decrease')} style={styles.controlBtn}>
-                    <Text style={[styles.btnText, { color: bgColors.controlText }]}>A-</Text>
+                    <Text allowFontScaling={false} style={[styles.btnText, { color: bgColors.controlText }]}>A-</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity onPress={toggleTheme} style={[styles.controlBtn, { flex: 2 }]}>
-                    <Text style={[styles.btnText, { color: bgColors.controlText }]}>
+                    <Text allowFontScaling={false} style={[styles.btnText, { color: bgColors.controlText }]}>
                         {isNight ? 'Día ☀️' : 'Noche 🌙'}
                     </Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity onPress={() => changeFontSize('increase')} style={styles.controlBtn}>
-                    <Text style={[styles.btnText, { color: bgColors.controlText }]}>A+</Text>
+                    <Text allowFontScaling={false} style={[styles.btnText, { color: bgColors.controlText }]}>A+</Text>
                 </TouchableOpacity>
             </View>
 
@@ -346,7 +350,7 @@ export default function ReaderScreen() {
                 <View style={[styles.modalOverlay, { backgroundColor: bgColors.modalOverlay }]}>
                     <View style={[styles.modalContent, { backgroundColor: bgColors.modalBg }]}>
                         <View style={[styles.modalHeader, { borderBottomColor: bgColors.border }]}>
-                            <Text style={[styles.modalTitle, { color: bgColors.text }]}>Índice</Text>
+                            <Text allowFontScaling={false} style={[styles.modalTitle, { color: bgColors.text }]}>Índice</Text>
                             <TouchableOpacity onPress={() => setMenuVisible(false)}>
                                 <Ionicons name="close" size={28} color={bgColors.text} />
                             </TouchableOpacity>
@@ -356,7 +360,6 @@ export default function ReaderScreen() {
                             style={[
                                 styles.filterBtn,
                                 {
-                                    // El botón de filtro usa el color primario (Bordó o Verde)
                                     backgroundColor: showOnlyBookmarks ? currentPrimary : 'transparent',
                                     borderColor: currentPrimary
                                 }
@@ -364,7 +367,7 @@ export default function ReaderScreen() {
                             onPress={() => setShowOnlyBookmarks(!showOnlyBookmarks)}
                         >
                             <Ionicons name="star" size={18} color={showOnlyBookmarks ? (isNight ? '#000' : '#fff') : currentPrimary} style={{ marginRight: 8 }} />
-                            <Text style={{ color: showOnlyBookmarks ? (isNight ? '#000' : '#fff') : currentPrimary, fontWeight: 'bold' }}>
+                            <Text allowFontScaling={false} style={{ color: showOnlyBookmarks ? (isNight ? '#000' : '#fff') : currentPrimary, fontWeight: 'bold' }}>
                                 {showOnlyBookmarks ? "Mostrando solo Favoritos" : "Mostrar solo Favoritos"}
                             </Text>
                         </TouchableOpacity>
@@ -377,10 +380,9 @@ export default function ReaderScreen() {
                                     style={[styles.menuItem, { borderBottomColor: bgColors.border }]}
                                     onPress={() => goToChapter(item.originalIndex)}
                                 >
-                                    <Text style={[
+                                    <Text allowFontScaling={false} style={[
                                         styles.menuItemText,
                                         {
-                                            // Texto destacado usa el color primario
                                             color: isBookmarked(item.originalIndex) ? currentPrimary : bgColors.text,
                                             flex: 1
                                         }
