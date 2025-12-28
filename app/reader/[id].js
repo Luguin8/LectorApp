@@ -16,7 +16,6 @@ const PRIMARY_NIGHT = '#81c784';
 export default function ReaderScreen() {
     const { id } = useLocalSearchParams();
     const insets = useSafeAreaInsets();
-    // Obtenemos ancho de pantalla para cálculos defensivos si hiciera falta
     const { width } = Dimensions.get('window');
 
     const { theme, fontSize, fontFamily, toggleTheme, changeFontSize, isReady, saveProgress, lastChapter, bookmarks, toggleBookmark } = useReader();
@@ -46,7 +45,7 @@ export default function ReaderScreen() {
         main: isNight ? '#1a1a1a' : '#ffffff',
         text: isNight ? '#d1d1d1' : '#333333',
         title: currentPrimary,
-        controls: isNight ? '#333' : '#f2f2f2', // Un gris un pelín más oscuro para resaltar la barra
+        controls: isNight ? '#333' : '#f2f2f2',
         controlText: isNight ? '#fff' : '#000',
         modalBg: isNight ? '#222' : '#fff',
         modalOverlay: isNight ? 'rgba(0,0,0,0.8)' : 'rgba(0,0,0,0.5)',
@@ -198,6 +197,13 @@ export default function ReaderScreen() {
 
     if (!bookData) return <View style={styles.center}><Text>No existe</Text></View>;
 
+    // LÓGICA DE PUBLICIDAD:
+    // Muestra anuncio si es múltiplo de 5 (Capítulo 5, 10, 15...)
+    // (index + 1) % 5 === 0
+    const shouldShowAd = (index) => {
+        return showAds && ((index + 1) % 5 === 0);
+    };
+
     return (
         <View style={[styles.container, { backgroundColor: bgColors.main }]}>
             <Stack.Screen options={{
@@ -216,6 +222,7 @@ export default function ReaderScreen() {
                 )
             }} />
 
+            {/* AD BANNER SUPERIOR (FIJO) */}
             {showAds && !loading && (
                 <View style={[styles.adContainer, { backgroundColor: bgColors.adBackground, borderColor: bgColors.adBorder }]}>
                     <Text allowFontScaling={false} style={{ color: bgColors.text, fontSize: 10, marginBottom: 2 }}>PUBLICIDAD</Text>
@@ -234,7 +241,6 @@ export default function ReaderScreen() {
                     ref={flatListRef}
                     data={chapters}
                     keyExtractor={(item, index) => index.toString()}
-                    // CORRECCIÓN 1: Padding Horizontal agresivo (30) para evitar cortes en bordes
                     contentContainerStyle={{ paddingHorizontal: 30, paddingTop: 20, paddingBottom: 160 }}
                     onLayout={onListLayout}
                     onScrollToIndexFailed={onScrollToIndexFailed}
@@ -254,7 +260,6 @@ export default function ReaderScreen() {
                             <View style={styles.chapterHeader}>
                                 {chapter.title && (
                                     <Text
-                                        // CORRECCIÓN 2: Desactivar escalado de sistema en títulos
                                         allowFontScaling={false}
                                         style={[styles.chapterTitle, { color: bgColors.title, fontFamily, flex: 1 }]}
                                     >
@@ -272,7 +277,6 @@ export default function ReaderScreen() {
 
                             <Text
                                 selectable={true}
-                                // CORRECCIÓN 3: Desactivar escalado de sistema en el texto (nosotros controlamos el tamaño)
                                 allowFontScaling={false}
                                 style={[
                                     styles.paragraph,
@@ -288,7 +292,8 @@ export default function ReaderScreen() {
                                 {chapter.content ? chapter.content.replace(/\\n/g, '\n\n') : ''}
                             </Text>
 
-                            {showAds && (
+                            {/* --- AD RECTANGULAR: SOLO SI ES MÚLTIPLO DE 5 --- */}
+                            {shouldShowAd(index) && (
                                 <View style={[styles.adContainer, {
                                     backgroundColor: bgColors.adBackground,
                                     borderColor: bgColors.adBorder,
@@ -317,7 +322,6 @@ export default function ReaderScreen() {
                     backgroundColor: bgColors.controls,
                     borderTopColor: isNight ? '#444' : '#ccc',
                     paddingBottom: Math.max(insets.bottom, 20),
-                    // CORRECCIÓN 4: Sombra y zIndex para asegurar que se vea
                     shadowColor: "#000",
                     shadowOffset: { width: 0, height: -3 },
                     shadowOpacity: 0.1,

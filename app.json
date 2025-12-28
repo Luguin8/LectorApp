@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "ReadFlow",
-    "slug": "readflow",
-    "version": "1.0.2",
+    "name": "Florecillas de San Francisco",
+    "slug": "florecillas-ebook",
+    "version": "1.0.4",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -20,13 +20,13 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.cliente.readflow",
+      "package": "com.cliente.florecillas",
       "permissions": [
         "INTERNET",
         "ACCESS_NETWORK_STATE"
       ],
       "edgeToEdgeEnabled": true,
-      "versionCode": 3
+      "versionCode": 4
     },
     "web": {
       "favicon": "./assets/favicon.png"
