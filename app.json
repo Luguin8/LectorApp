@@ -20,7 +20,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.cliente.florecillas",
+      "package": "com.cliente.readflow",
       "permissions": [
         "INTERNET",
         "ACCESS_NETWORK_STATE"
@@ -37,10 +37,10 @@
       "expo-font"
     ],
     "extra": {
+      "router": {},
       "eas": {
-        "projectId": "9e278344-b5cf-4242-befd-1a0db9b80830"
-      },
-      "router": {}
+        "projectId": "624fe04b-14b8-427b-97ec-da399d5fcdf6"
+      }
     }
   }
 }
