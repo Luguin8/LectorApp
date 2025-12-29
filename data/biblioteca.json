@@ -1,8 +1,8 @@
 [
     {
         "id": "libro1",
-        "title": "Florecillas Ebook",
-        "author": "Juliana Pastrana",
+        "title": "Florecillas",
+        "author": "San Francisco",
         "filename": "libro1.txt",
         "coverColor": "#4A90E2"
     }
