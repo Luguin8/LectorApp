@@ -1,114 +1,113 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useContext, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFonts, Merriweather_400Regular, Merriweather_700Bold } from '@expo-google-fonts/merriweather';
+import { useFonts } from 'expo-font';
+import * as SplashScreen from 'expo-splash-screen';
 
-const defaultSettings = {
-    theme: 'day',
-    fontSize: 18,
-    fontFamily: 'System',
-};
+const ReaderContext = createContext();
 
-export const ReaderContext = createContext();
+const FONT_SIZE_KEY = 'florecillas_font_size';
+const THEME_KEY = 'florecillas_theme';
+const LAST_CHAPTER_KEY = 'florecillas_last_chapter';
+const BOOKMARKS_KEY = 'florecillas_bookmarks';
+const TEXT_ALIGN_KEY = 'florecillas_text_align'; // NUEVA CLAVE
 
 export const ReaderProvider = ({ children }) => {
-    const [theme, setTheme] = useState(defaultSettings.theme);
-    const [fontSize, setFontSize] = useState(defaultSettings.fontSize);
-
-    // CAMBIO: Iniciamos como objeto vacío para soportar múltiples libros
+    const [theme, setTheme] = useState('day');
+    const [fontSize, setFontSize] = useState(18);
+    const [textAlign, setTextAlign] = useState('justify'); // NUEVO ESTADO (Default: Justificado)
+    const [fontFamily, setFontFamily] = useState('System');
+    const [isReady, setIsReady] = useState(false);
+    const [lastChapter, setLastChapter] = useState(null);
     const [bookmarks, setBookmarks] = useState({});
 
-    const [lastChapter, setLastChapter] = useState(null);
-    const [isReady, setIsReady] = useState(false);
-
-    let [fontsLoaded] = useFonts({
-        Merriweather_400Regular,
-        Merriweather_700Bold,
+    const [fontsLoaded] = useFonts({
+        // Aquí podrías cargar fuentes custom si tuvieras
     });
 
     useEffect(() => {
         loadSettings();
-    }, []);
+    }, [fontsLoaded]);
 
     const loadSettings = async () => {
         try {
-            const savedTheme = await AsyncStorage.getItem('theme');
-            const savedSize = await AsyncStorage.getItem('fontSize');
-            const savedBookmarks = await AsyncStorage.getItem('bookmarks');
-            const savedProgress = await AsyncStorage.getItem('lastProgress');
+            const savedTheme = await AsyncStorage.getItem(THEME_KEY);
+            const savedFontSize = await AsyncStorage.getItem(FONT_SIZE_KEY);
+            const savedChapter = await AsyncStorage.getItem(LAST_CHAPTER_KEY);
+            const savedBookmarks = await AsyncStorage.getItem(BOOKMARKS_KEY);
+            const savedTextAlign = await AsyncStorage.getItem(TEXT_ALIGN_KEY); // Cargar alineación
 
             if (savedTheme) setTheme(savedTheme);
-            if (savedSize) setFontSize(parseInt(savedSize));
+            if (savedFontSize) setFontSize(parseFloat(savedFontSize));
+            if (savedChapter) setLastChapter(JSON.parse(savedChapter));
+            if (savedBookmarks) setBookmarks(JSON.parse(savedBookmarks));
+            if (savedTextAlign) setTextAlign(savedTextAlign); // Setear alineación
 
-            if (savedBookmarks) {
-                const parsed = JSON.parse(savedBookmarks);
-                // Validación extra: Si es un array (formato viejo), lo reseteamos a objeto
-                if (Array.isArray(parsed)) {
-                    setBookmarks({});
-                } else {
-                    setBookmarks(parsed);
-                }
-            }
-
-            if (savedProgress) setLastChapter(JSON.parse(savedProgress));
-
-            setIsReady(true);
         } catch (e) {
-            console.error("Error cargando configuración:", e);
+            console.error("Error cargando settings", e);
+        } finally {
+            setIsReady(true);
+            await SplashScreen.hideAsync();
         }
     };
 
     const toggleTheme = async () => {
         const newTheme = theme === 'day' ? 'night' : 'day';
         setTheme(newTheme);
-        await AsyncStorage.setItem('theme', newTheme);
+        await AsyncStorage.setItem(THEME_KEY, newTheme);
+    };
+
+    // NUEVA FUNCIÓN: Alternar alineación
+    const toggleTextAlign = async () => {
+        const newAlign = textAlign === 'justify' ? 'left' : 'justify';
+        setTextAlign(newAlign);
+        await AsyncStorage.setItem(TEXT_ALIGN_KEY, newAlign);
     };
 
     const changeFontSize = async (action) => {
         let newSize = fontSize;
-        if (action === 'increase' && fontSize < 30) newSize += 2;
-        if (action === 'decrease' && fontSize > 12) newSize -= 2;
+        if (action === 'increase') newSize += 2;
+        if (action === 'decrease') newSize -= 2;
+
+        if (newSize < 12) newSize = 12;
+        if (newSize > 34) newSize = 34;
 
         setFontSize(newSize);
-        await AsyncStorage.setItem('fontSize', newSize.toString());
+        await AsyncStorage.setItem(FONT_SIZE_KEY, newSize.toString());
     };
 
     const saveProgress = async (bookId, chapterIndex) => {
-        const progress = { bookId, chapterIndex };
-        setLastChapter(progress);
-        await AsyncStorage.setItem('lastProgress', JSON.stringify(progress));
+        const data = { bookId, chapterIndex };
+        setLastChapter(data);
+        await AsyncStorage.setItem(LAST_CHAPTER_KEY, JSON.stringify(data));
     };
 
-    // CAMBIO IMPORTANTE: Recibimos bookId para guardar independientemente
     const toggleBookmark = async (bookId, chapterIndex) => {
-        const currentBookBookmarks = bookmarks[bookId] || [];
-        let newBookBookmarks;
+        const newBookmarks = { ...bookmarks };
+        if (!newBookmarks[bookId]) newBookmarks[bookId] = [];
 
-        if (currentBookBookmarks.includes(chapterIndex)) {
-            // Si ya existe, lo quitamos
-            newBookBookmarks = currentBookBookmarks.filter(id => id !== chapterIndex);
+        if (newBookmarks[bookId].includes(chapterIndex)) {
+            newBookmarks[bookId] = newBookmarks[bookId].filter(i => i !== chapterIndex);
         } else {
-            // Si no existe, lo agregamos
-            newBookBookmarks = [...currentBookBookmarks, chapterIndex];
+            newBookmarks[bookId].push(chapterIndex);
         }
 
-        // Actualizamos el objeto global de bookmarks
-        const newBookmarks = { ...bookmarks, [bookId]: newBookBookmarks };
-
         setBookmarks(newBookmarks);
-        await AsyncStorage.setItem('bookmarks', JSON.stringify(newBookmarks));
+        await AsyncStorage.setItem(BOOKMARKS_KEY, JSON.stringify(newBookmarks));
     };
 
     return (
         <ReaderContext.Provider value={{
             theme,
             fontSize,
-            fontFamily: fontsLoaded ? 'Merriweather_400Regular' : 'System',
-            isReady: isReady && fontsLoaded,
+            fontFamily,
+            textAlign,      // Exportamos
+            toggleTextAlign,// Exportamos
+            isReady,
+            lastChapter,
+            bookmarks,
             toggleTheme,
             changeFontSize,
             saveProgress,
-            lastChapter,
-            bookmarks,
             toggleBookmark
         }}>
             {children}

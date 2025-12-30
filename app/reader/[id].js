@@ -16,9 +16,9 @@ const PRIMARY_NIGHT = '#81c784';
 export default function ReaderScreen() {
     const { id } = useLocalSearchParams();
     const insets = useSafeAreaInsets();
-    const { width } = Dimensions.get('window');
 
-    const { theme, fontSize, fontFamily, toggleTheme, changeFontSize, isReady, saveProgress, lastChapter, bookmarks, toggleBookmark } = useReader();
+    // Traemos textAlign y toggleTextAlign del contexto
+    const { theme, fontSize, fontFamily, textAlign, toggleTextAlign, toggleTheme, changeFontSize, isReady, saveProgress, lastChapter, bookmarks, toggleBookmark } = useReader();
 
     const [chapters, setChapters] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -197,7 +197,6 @@ export default function ReaderScreen() {
 
     if (!bookData) return <View style={styles.center}><Text>No existe</Text></View>;
 
-    // LÓGICA DE PUBLICIDAD: (index + 1) % 5 === 0
     const shouldShowAd = (index) => {
         return showAds && ((index + 1) % 5 === 0);
     };
@@ -220,7 +219,6 @@ export default function ReaderScreen() {
                 )
             }} />
 
-            {/* AD BANNER SUPERIOR (FIJO) */}
             {showAds && !loading && (
                 <View style={[styles.adContainer, { backgroundColor: bgColors.adBackground, borderColor: bgColors.adBorder }]}>
                     <Text allowFontScaling={false} style={{ color: bgColors.text, fontSize: 10, marginBottom: 2 }}>PUBLICIDAD</Text>
@@ -239,7 +237,7 @@ export default function ReaderScreen() {
                     ref={flatListRef}
                     data={chapters}
                     keyExtractor={(item, index) => index.toString()}
-                    contentContainerStyle={{ paddingHorizontal: 30, paddingTop: 20, paddingBottom: 160 }}
+                    contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 160 }}
                     onLayout={onListLayout}
                     onScrollToIndexFailed={onScrollToIndexFailed}
                     onViewableItemsChanged={onViewableItemsChanged}
@@ -273,29 +271,31 @@ export default function ReaderScreen() {
                                 </TouchableOpacity>
                             </View>
 
-                            {/* --- AQUÍ ESTÁ LA MAGIA DEL FIX ANDROID --- */}
-                            <Text
-                                selectable={true}
-                                allowFontScaling={false}
-                                // PROPIEDADES NUEVAS AGREGADAS:
-                                textBreakStrategy="highQuality" // Mejora el cálculo de líneas
-                                hyphenationFrequency="full"   // Activa guiones en palabras largas
-                                style={[
-                                    styles.paragraph,
-                                    {
-                                        fontSize: fontSize,
-                                        color: bgColors.text,
-                                        fontFamily: fontFamily,
-                                        lineHeight: fontSize * 1.5,
-                                        textAlign: 'justify',
-                                        width: '100%' // Asegura que ocupe todo el ancho disponible
-                                    }
-                                ]}
-                            >
-                                {chapter.content ? chapter.content.replace(/\\n/g, '\n\n') : ''}
-                            </Text>
+                            <View style={{ width: '100%', paddingHorizontal: 10 }}>
+                                <Text
+                                    selectable={true}
+                                    allowFontScaling={false}
+                                    textBreakStrategy="highQuality"
+                                    hyphenationFrequency="full"
+                                    style={[
+                                        styles.paragraph,
+                                        {
+                                            fontSize: fontSize,
+                                            color: bgColors.text,
+                                            fontFamily: fontFamily,
+                                            lineHeight: fontSize * 1.8,
+                                            // AQUI ESTA LA MAGIA: Alineación Dinámica
+                                            textAlign: textAlign,
+                                            // Ancho del 99% para evitar bugs de redondeo en bordes
+                                            width: '99%'
+                                        }
+                                    ]}
+                                >
+                                    {/* HACK: Agregamos un espacio al final (' ') para que si Android corta, corte el espacio y no la letra */}
+                                    {chapter.content ? chapter.content.replace(/\\n/g, '\n\n') + ' ' : ''}
+                                </Text>
+                            </View>
 
-                            {/* --- AD RECTANGULAR: SOLO SI ES MÚLTIPLO DE 5 --- */}
                             {shouldShowAd(index) && (
                                 <View style={[styles.adContainer, {
                                     backgroundColor: bgColors.adBackground,
@@ -333,16 +333,28 @@ export default function ReaderScreen() {
                     zIndex: 999
                 }
             ]}>
+                {/* BOTÓN 1: Disminuir Letra */}
                 <TouchableOpacity onPress={() => changeFontSize('decrease')} style={styles.controlBtn}>
                     <Text allowFontScaling={false} style={[styles.btnText, { color: bgColors.controlText }]}>A-</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity onPress={toggleTheme} style={[styles.controlBtn, { flex: 2 }]}>
+                {/* BOTÓN 2: Modo Día/Noche */}
+                <TouchableOpacity onPress={toggleTheme} style={[styles.controlBtn, { flex: 1.5 }]}>
                     <Text allowFontScaling={false} style={[styles.btnText, { color: bgColors.controlText }]}>
-                        {isNight ? 'Día ☀️' : 'Noche 🌙'}
+                        {isNight ? 'Día' : 'Noche'}
                     </Text>
                 </TouchableOpacity>
 
+                {/* BOTÓN 3: Alineación (NUEVO) */}
+                <TouchableOpacity onPress={toggleTextAlign} style={[styles.controlBtn, { flex: 0.8 }]}>
+                    <Ionicons
+                        name={textAlign === 'justify' ? "reorder-four" : "list"}
+                        size={26}
+                        color={bgColors.controlText}
+                    />
+                </TouchableOpacity>
+
+                {/* BOTÓN 4: Aumentar Letra */}
                 <TouchableOpacity onPress={() => changeFontSize('increase')} style={styles.controlBtn}>
                     <Text allowFontScaling={false} style={[styles.btnText, { color: bgColors.controlText }]}>A+</Text>
                 </TouchableOpacity>
@@ -354,6 +366,7 @@ export default function ReaderScreen() {
                 visible={menuVisible}
                 onRequestClose={() => setMenuVisible(false)}
             >
+                {/* ... (Modal se mantiene igual) ... */}
                 <View style={[styles.modalOverlay, { backgroundColor: bgColors.modalOverlay }]}>
                     <View style={[styles.modalContent, { backgroundColor: bgColors.modalBg }]}>
                         <View style={[styles.modalHeader, { borderBottomColor: bgColors.border }]}>
@@ -437,7 +450,7 @@ const styles = StyleSheet.create({
         marginLeft: 10
     },
     paragraph: {
-        textAlign: 'justify',
+        // textAlign lo manejamos dinámicamente arriba
     },
     separator: {
         height: 1,
@@ -457,14 +470,14 @@ const styles = StyleSheet.create({
         borderTopWidth: 1,
     },
     controlBtn: {
-        padding: 10,
+        padding: 5, // Reducimos un poco el padding para que quepan 4 botones
         borderRadius: 5,
         alignItems: 'center',
         justifyContent: 'center',
         flex: 1,
     },
     btnText: {
-        fontSize: 16,
+        fontSize: 15, // Ajuste leve de tamaño
         fontWeight: 'bold',
     },
     modalOverlay: {
