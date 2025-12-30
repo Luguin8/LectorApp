@@ -197,9 +197,7 @@ export default function ReaderScreen() {
 
     if (!bookData) return <View style={styles.center}><Text>No existe</Text></View>;
 
-    // LÓGICA DE PUBLICIDAD:
-    // Muestra anuncio si es múltiplo de 5 (Capítulo 5, 10, 15...)
-    // (index + 1) % 5 === 0
+    // LÓGICA DE PUBLICIDAD: (index + 1) % 5 === 0
     const shouldShowAd = (index) => {
         return showAds && ((index + 1) % 5 === 0);
     };
@@ -275,9 +273,13 @@ export default function ReaderScreen() {
                                 </TouchableOpacity>
                             </View>
 
+                            {/* --- AQUÍ ESTÁ LA MAGIA DEL FIX ANDROID --- */}
                             <Text
                                 selectable={true}
                                 allowFontScaling={false}
+                                // PROPIEDADES NUEVAS AGREGADAS:
+                                textBreakStrategy="highQuality" // Mejora el cálculo de líneas
+                                hyphenationFrequency="full"   // Activa guiones en palabras largas
                                 style={[
                                     styles.paragraph,
                                     {
@@ -285,7 +287,8 @@ export default function ReaderScreen() {
                                         color: bgColors.text,
                                         fontFamily: fontFamily,
                                         lineHeight: fontSize * 1.5,
-                                        textAlign: 'justify'
+                                        textAlign: 'justify',
+                                        width: '100%' // Asegura que ocupe todo el ancho disponible
                                     }
                                 ]}
                             >
