@@ -9,12 +9,13 @@ const FONT_SIZE_KEY = 'florecillas_font_size';
 const THEME_KEY = 'florecillas_theme';
 const LAST_CHAPTER_KEY = 'florecillas_last_chapter';
 const BOOKMARKS_KEY = 'florecillas_bookmarks';
-const TEXT_ALIGN_KEY = 'florecillas_text_align'; // NUEVA CLAVE
+const TEXT_ALIGN_KEY = 'florecillas_text_align';
 
 export const ReaderProvider = ({ children }) => {
     const [theme, setTheme] = useState('day');
     const [fontSize, setFontSize] = useState(18);
-    const [textAlign, setTextAlign] = useState('justify'); // NUEVO ESTADO (Default: Justificado)
+    // CAMBIO: Default a 'left' para máxima compatibilidad
+    const [textAlign, setTextAlign] = useState('left');
     const [fontFamily, setFontFamily] = useState('System');
     const [isReady, setIsReady] = useState(false);
     const [lastChapter, setLastChapter] = useState(null);
@@ -34,13 +35,14 @@ export const ReaderProvider = ({ children }) => {
             const savedFontSize = await AsyncStorage.getItem(FONT_SIZE_KEY);
             const savedChapter = await AsyncStorage.getItem(LAST_CHAPTER_KEY);
             const savedBookmarks = await AsyncStorage.getItem(BOOKMARKS_KEY);
-            const savedTextAlign = await AsyncStorage.getItem(TEXT_ALIGN_KEY); // Cargar alineación
+            const savedTextAlign = await AsyncStorage.getItem(TEXT_ALIGN_KEY);
 
             if (savedTheme) setTheme(savedTheme);
             if (savedFontSize) setFontSize(parseFloat(savedFontSize));
             if (savedChapter) setLastChapter(JSON.parse(savedChapter));
             if (savedBookmarks) setBookmarks(JSON.parse(savedBookmarks));
-            if (savedTextAlign) setTextAlign(savedTextAlign); // Setear alineación
+            // Si existe guardado, lo usamos, si no, se queda en 'left'
+            if (savedTextAlign) setTextAlign(savedTextAlign);
 
         } catch (e) {
             console.error("Error cargando settings", e);
@@ -56,8 +58,8 @@ export const ReaderProvider = ({ children }) => {
         await AsyncStorage.setItem(THEME_KEY, newTheme);
     };
 
-    // NUEVA FUNCIÓN: Alternar alineación
     const toggleTextAlign = async () => {
+        // Alternamos entre izquierda y justificado
         const newAlign = textAlign === 'justify' ? 'left' : 'justify';
         setTextAlign(newAlign);
         await AsyncStorage.setItem(TEXT_ALIGN_KEY, newAlign);
@@ -100,8 +102,8 @@ export const ReaderProvider = ({ children }) => {
             theme,
             fontSize,
             fontFamily,
-            textAlign,      // Exportamos
-            toggleTextAlign,// Exportamos
+            textAlign,
+            toggleTextAlign,
             isReady,
             lastChapter,
             bookmarks,

@@ -17,7 +17,6 @@ export default function ReaderScreen() {
     const { id } = useLocalSearchParams();
     const insets = useSafeAreaInsets();
 
-    // Traemos textAlign y toggleTextAlign del contexto
     const { theme, fontSize, fontFamily, textAlign, toggleTextAlign, toggleTheme, changeFontSize, isReady, saveProgress, lastChapter, bookmarks, toggleBookmark } = useReader();
 
     const [chapters, setChapters] = useState([]);
@@ -271,28 +270,25 @@ export default function ReaderScreen() {
                                 </TouchableOpacity>
                             </View>
 
-                            <View style={{ width: '100%', paddingHorizontal: 10 }}>
+                            <View style={{ width: '100%' }}>
                                 <Text
                                     selectable={true}
                                     allowFontScaling={false}
-                                    textBreakStrategy="highQuality"
-                                    hyphenationFrequency="full"
+                                    // ELIMINADAS: textBreakStrategy y hyphenationFrequency para compatibilidad total
                                     style={[
                                         styles.paragraph,
                                         {
                                             fontSize: fontSize,
                                             color: bgColors.text,
                                             fontFamily: fontFamily,
-                                            lineHeight: fontSize * 1.8,
-                                            // AQUI ESTA LA MAGIA: Alineación Dinámica
+                                            lineHeight: fontSize * 1.6, // Reduje un poco el lineHeight para evitar desbordes verticales
                                             textAlign: textAlign,
-                                            // Ancho del 99% para evitar bugs de redondeo en bordes
-                                            width: '99%'
+                                            width: '100%' // Ancho estándar
                                         }
                                     ]}
                                 >
-                                    {/* HACK: Agregamos un espacio al final (' ') para que si Android corta, corte el espacio y no la letra */}
-                                    {chapter.content ? chapter.content.replace(/\\n/g, '\n\n') + ' ' : ''}
+                                    {/* Mantenemos la limpieza de saltos de línea pero sin hacks extraños */}
+                                    {chapter.content ? chapter.content.replace(/\\n/g, '\n\n') : ''}
                                 </Text>
                             </View>
 
@@ -333,19 +329,16 @@ export default function ReaderScreen() {
                     zIndex: 999
                 }
             ]}>
-                {/* BOTÓN 1: Disminuir Letra */}
                 <TouchableOpacity onPress={() => changeFontSize('decrease')} style={styles.controlBtn}>
                     <Text allowFontScaling={false} style={[styles.btnText, { color: bgColors.controlText }]}>A-</Text>
                 </TouchableOpacity>
 
-                {/* BOTÓN 2: Modo Día/Noche */}
                 <TouchableOpacity onPress={toggleTheme} style={[styles.controlBtn, { flex: 1.5 }]}>
                     <Text allowFontScaling={false} style={[styles.btnText, { color: bgColors.controlText }]}>
                         {isNight ? 'Día' : 'Noche'}
                     </Text>
                 </TouchableOpacity>
 
-                {/* BOTÓN 3: Alineación (NUEVO) */}
                 <TouchableOpacity onPress={toggleTextAlign} style={[styles.controlBtn, { flex: 0.8 }]}>
                     <Ionicons
                         name={textAlign === 'justify' ? "reorder-four" : "list"}
@@ -354,7 +347,6 @@ export default function ReaderScreen() {
                     />
                 </TouchableOpacity>
 
-                {/* BOTÓN 4: Aumentar Letra */}
                 <TouchableOpacity onPress={() => changeFontSize('increase')} style={styles.controlBtn}>
                     <Text allowFontScaling={false} style={[styles.btnText, { color: bgColors.controlText }]}>A+</Text>
                 </TouchableOpacity>
@@ -366,7 +358,6 @@ export default function ReaderScreen() {
                 visible={menuVisible}
                 onRequestClose={() => setMenuVisible(false)}
             >
-                {/* ... (Modal se mantiene igual) ... */}
                 <View style={[styles.modalOverlay, { backgroundColor: bgColors.modalOverlay }]}>
                     <View style={[styles.modalContent, { backgroundColor: bgColors.modalBg }]}>
                         <View style={[styles.modalHeader, { borderBottomColor: bgColors.border }]}>
@@ -450,7 +441,7 @@ const styles = StyleSheet.create({
         marginLeft: 10
     },
     paragraph: {
-        // textAlign lo manejamos dinámicamente arriba
+        // La alineación se maneja dinámicamente
     },
     separator: {
         height: 1,
@@ -470,14 +461,14 @@ const styles = StyleSheet.create({
         borderTopWidth: 1,
     },
     controlBtn: {
-        padding: 5, // Reducimos un poco el padding para que quepan 4 botones
+        padding: 5,
         borderRadius: 5,
         alignItems: 'center',
         justifyContent: 'center',
         flex: 1,
     },
     btnText: {
-        fontSize: 15, // Ajuste leve de tamaño
+        fontSize: 15,
         fontWeight: 'bold',
     },
     modalOverlay: {
