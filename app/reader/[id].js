@@ -17,6 +17,7 @@ export default function ReaderScreen() {
     const { id } = useLocalSearchParams();
     const insets = useSafeAreaInsets();
 
+    // Traemos las configuraciones del contexto
     const { theme, fontSize, fontFamily, textAlign, toggleTextAlign, toggleTheme, changeFontSize, isReady, saveProgress, lastChapter, bookmarks, toggleBookmark } = useReader();
 
     const [chapters, setChapters] = useState([]);
@@ -236,7 +237,8 @@ export default function ReaderScreen() {
                     ref={flatListRef}
                     data={chapters}
                     keyExtractor={(item, index) => index.toString()}
-                    contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 160 }}
+                    // CORRECCIÓN 1: Padding Bottom aumentado a 250 para que la lista NUNCA se corte
+                    contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 250 }}
                     onLayout={onListLayout}
                     onScrollToIndexFailed={onScrollToIndexFailed}
                     onViewableItemsChanged={onViewableItemsChanged}
@@ -270,25 +272,27 @@ export default function ReaderScreen() {
                                 </TouchableOpacity>
                             </View>
 
-                            <View style={{ width: '100%' }}>
+                            {/* CORRECCIÓN 2: Quitamos el padding interno y anchos fijos para Motorola */}
+                            <View style={{ flex: 1 }}>
                                 <Text
                                     selectable={true}
                                     allowFontScaling={false}
-                                    // ELIMINADAS: textBreakStrategy y hyphenationFrequency para compatibilidad total
+                                    textBreakStrategy="highQuality"
+                                    hyphenationFrequency="full"
                                     style={[
                                         styles.paragraph,
                                         {
                                             fontSize: fontSize,
                                             color: bgColors.text,
                                             fontFamily: fontFamily,
-                                            lineHeight: fontSize * 1.6, // Reduje un poco el lineHeight para evitar desbordes verticales
+                                            lineHeight: fontSize * 1.8,
                                             textAlign: textAlign,
-                                            width: '100%' // Ancho estándar
+                                            // Quitamos width fijo para evitar cortes en bordes
                                         }
                                     ]}
                                 >
-                                    {/* Mantenemos la limpieza de saltos de línea pero sin hacks extraños */}
-                                    {chapter.content ? chapter.content.replace(/\\n/g, '\n\n') : ''}
+                                    {/* Mantenemos el hack del espacio para seguridad */}
+                                    {chapter.content ? chapter.content.replace(/\\n/g, '\n\n') + ' ' : ''}
                                 </Text>
                             </View>
 
@@ -320,6 +324,7 @@ export default function ReaderScreen() {
                 {
                     backgroundColor: bgColors.controls,
                     borderTopColor: isNight ? '#444' : '#ccc',
+                    // Aseguramos que respete el Safe Area
                     paddingBottom: Math.max(insets.bottom, 20),
                     shadowColor: "#000",
                     shadowOffset: { width: 0, height: -3 },
@@ -339,6 +344,7 @@ export default function ReaderScreen() {
                     </Text>
                 </TouchableOpacity>
 
+                {/* Botón de alineación: Clave para Motorola */}
                 <TouchableOpacity onPress={toggleTextAlign} style={[styles.controlBtn, { flex: 0.8 }]}>
                     <Ionicons
                         name={textAlign === 'justify' ? "reorder-four" : "list"}
@@ -441,7 +447,7 @@ const styles = StyleSheet.create({
         marginLeft: 10
     },
     paragraph: {
-        // La alineación se maneja dinámicamente
+        // TextAlign manejado dinámicamente
     },
     separator: {
         height: 1,
