@@ -4,12 +4,16 @@ import { useLocalSearchParams, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Speech from 'expo-speech';
-import { BannerAd, BannerAdSize, TestIds } from 'react-native-google-mobile-ads';
+
+// --- CAMBIO IMPORTANTE: Usamos nuestro componente híbrido ---
+// Ya no importamos 'react-native-google-mobile-ads' directamente aquí
+import AdBanner, { BannerAdSize } from '../../components/AdBanner';
 
 import { useReader } from '../../context/ReaderContext';
 import books from '../../data/biblioteca.json';
 import { bookFiles } from '../../utils/bookLoader';
 
+// ADMOB
 const AD_UNIT_TOP = 'ca-app-pub-2263615536540210/6379943534';
 const AD_UNIT_RECT = 'ca-app-pub-2263615536540210/4636467089';
 
@@ -53,7 +57,6 @@ export default function ReaderScreen() {
         modalBg: isNight ? '#222' : '#fff',
         modalOverlay: isNight ? 'rgba(0,0,0,0.8)' : 'rgba(0,0,0,0.5)',
         border: isNight ? '#444' : '#eee',
-        // Los colores de AdBackground ya no se usan porque el Banner es nativo, pero los dejamos por si acaso
         adBackground: isNight ? '#2a2a2a' : '#f0f0f0',
         adBorder: isNight ? '#444' : '#ccc',
         readingHighlight: currentPrimary
@@ -223,13 +226,12 @@ export default function ReaderScreen() {
                 )
             }} />
 
-            {/* AD BANNER SUPERIOR (REAL) */}
+            {/* AD BANNER SUPERIOR (REAL O MOCK SEGÚN PLATAFORMA) */}
             {showAds && !loading && (
                 <View style={[styles.adContainer, { backgroundColor: isNight ? '#000' : '#fff', borderBottomWidth: 1, borderColor: bgColors.border }]}>
-                    <BannerAd
+                    <AdBanner
                         unitId={AD_UNIT_TOP}
-                        size={BannerAdSize.BANNER} // Tamaño estándar 320x50
-                        requestOptions={{ requestNonPersonalizedAdsOnly: true }}
+                        size={BannerAdSize.BANNER}
                     />
                 </View>
             )}
@@ -298,13 +300,12 @@ export default function ReaderScreen() {
                                 </Text>
                             </View>
 
-                            {/* AD RECTANGULAR (REAL) - SOLO SI ES MÚLTIPLO DE 5 */}
+                            {/* AD RECTANGULAR (REAL O MOCK) */}
                             {shouldShowAd(index) && (
                                 <View style={[styles.adContainer, { marginVertical: 30 }]}>
-                                    <BannerAd
+                                    <AdBanner
                                         unitId={AD_UNIT_RECT}
-                                        size={BannerAdSize.MEDIUM_RECTANGLE} // Tamaño 300x250
-                                        requestOptions={{ requestNonPersonalizedAdsOnly: true }}
+                                        size={BannerAdSize.MEDIUM_RECTANGLE}
                                     />
                                 </View>
                             )}
