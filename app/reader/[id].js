@@ -4,10 +4,14 @@ import { useLocalSearchParams, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Speech from 'expo-speech';
+import { BannerAd, BannerAdSize, TestIds } from 'react-native-google-mobile-ads';
 
 import { useReader } from '../../context/ReaderContext';
 import books from '../../data/biblioteca.json';
 import { bookFiles } from '../../utils/bookLoader';
+
+const AD_UNIT_TOP = 'ca-app-pub-2263615536540210/6379943534';
+const AD_UNIT_RECT = 'ca-app-pub-2263615536540210/4636467089';
 
 // --- COLORES PRINCIPALES ---
 const PRIMARY_DAY = '#691a35';
@@ -17,7 +21,6 @@ export default function ReaderScreen() {
     const { id } = useLocalSearchParams();
     const insets = useSafeAreaInsets();
 
-    // Traemos las configuraciones del contexto
     const { theme, fontSize, fontFamily, textAlign, toggleTextAlign, toggleTheme, changeFontSize, isReady, saveProgress, lastChapter, bookmarks, toggleBookmark } = useReader();
 
     const [chapters, setChapters] = useState([]);
@@ -50,6 +53,7 @@ export default function ReaderScreen() {
         modalBg: isNight ? '#222' : '#fff',
         modalOverlay: isNight ? 'rgba(0,0,0,0.8)' : 'rgba(0,0,0,0.5)',
         border: isNight ? '#444' : '#eee',
+        // Los colores de AdBackground ya no se usan porque el Banner es nativo, pero los dejamos por si acaso
         adBackground: isNight ? '#2a2a2a' : '#f0f0f0',
         adBorder: isNight ? '#444' : '#ccc',
         readingHighlight: currentPrimary
@@ -219,12 +223,14 @@ export default function ReaderScreen() {
                 )
             }} />
 
+            {/* AD BANNER SUPERIOR (REAL) */}
             {showAds && !loading && (
-                <View style={[styles.adContainer, { backgroundColor: bgColors.adBackground, borderColor: bgColors.adBorder }]}>
-                    <Text allowFontScaling={false} style={{ color: bgColors.text, fontSize: 10, marginBottom: 2 }}>PUBLICIDAD</Text>
-                    <View style={{ width: 320, height: 50, backgroundColor: '#ccc', justifyContent: 'center', alignItems: 'center' }}>
-                        <Text allowFontScaling={false} style={{ color: '#666', fontWeight: 'bold' }}>Banner Top (320x50)</Text>
-                    </View>
+                <View style={[styles.adContainer, { backgroundColor: isNight ? '#000' : '#fff', borderBottomWidth: 1, borderColor: bgColors.border }]}>
+                    <BannerAd
+                        unitId={AD_UNIT_TOP}
+                        size={BannerAdSize.BANNER} // Tamaño estándar 320x50
+                        requestOptions={{ requestNonPersonalizedAdsOnly: true }}
+                    />
                 </View>
             )}
 
@@ -237,7 +243,6 @@ export default function ReaderScreen() {
                     ref={flatListRef}
                     data={chapters}
                     keyExtractor={(item, index) => index.toString()}
-                    // CORRECCIÓN 1: Padding Bottom aumentado a 250 para que la lista NUNCA se corte
                     contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 250 }}
                     onLayout={onListLayout}
                     onScrollToIndexFailed={onScrollToIndexFailed}
@@ -272,7 +277,6 @@ export default function ReaderScreen() {
                                 </TouchableOpacity>
                             </View>
 
-                            {/* CORRECCIÓN 2: Quitamos el padding interno y anchos fijos para Motorola */}
                             <View style={{ flex: 1 }}>
                                 <Text
                                     selectable={true}
@@ -287,29 +291,21 @@ export default function ReaderScreen() {
                                             fontFamily: fontFamily,
                                             lineHeight: fontSize * 1.8,
                                             textAlign: textAlign,
-                                            // Quitamos width fijo para evitar cortes en bordes
                                         }
                                     ]}
                                 >
-                                    {/* Mantenemos el hack del espacio para seguridad */}
                                     {chapter.content ? chapter.content.replace(/\\n/g, '\n\n') + ' ' : ''}
                                 </Text>
                             </View>
 
+                            {/* AD RECTANGULAR (REAL) - SOLO SI ES MÚLTIPLO DE 5 */}
                             {shouldShowAd(index) && (
-                                <View style={[styles.adContainer, {
-                                    backgroundColor: bgColors.adBackground,
-                                    borderColor: bgColors.adBorder,
-                                    marginVertical: 30,
-                                    padding: 10,
-                                    borderRadius: 10,
-                                    borderWidth: 1
-                                }]}>
-                                    <Text allowFontScaling={false} style={{ color: bgColors.text, fontSize: 10, marginBottom: 4 }}>ESPACIO PUBLICITARIO</Text>
-                                    <View style={{ width: 300, height: 250, backgroundColor: '#dcdcdc', justifyContent: 'center', alignItems: 'center' }}>
-                                        <Text allowFontScaling={false} style={{ color: '#666', fontWeight: 'bold' }}>Anuncio Rectangular</Text>
-                                        <Text allowFontScaling={false} style={{ color: '#666', fontSize: 12 }}>(300 x 250)</Text>
-                                    </View>
+                                <View style={[styles.adContainer, { marginVertical: 30 }]}>
+                                    <BannerAd
+                                        unitId={AD_UNIT_RECT}
+                                        size={BannerAdSize.MEDIUM_RECTANGLE} // Tamaño 300x250
+                                        requestOptions={{ requestNonPersonalizedAdsOnly: true }}
+                                    />
                                 </View>
                             )}
 
@@ -324,7 +320,6 @@ export default function ReaderScreen() {
                 {
                     backgroundColor: bgColors.controls,
                     borderTopColor: isNight ? '#444' : '#ccc',
-                    // Aseguramos que respete el Safe Area
                     paddingBottom: Math.max(insets.bottom, 20),
                     shadowColor: "#000",
                     shadowOffset: { width: 0, height: -3 },
@@ -344,7 +339,6 @@ export default function ReaderScreen() {
                     </Text>
                 </TouchableOpacity>
 
-                {/* Botón de alineación: Clave para Motorola */}
                 <TouchableOpacity onPress={toggleTextAlign} style={[styles.controlBtn, { flex: 0.8 }]}>
                     <Ionicons
                         name={textAlign === 'justify' ? "reorder-four" : "list"}
@@ -427,7 +421,9 @@ const styles = StyleSheet.create({
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     adContainer: {
         alignItems: 'center',
+        justifyContent: 'center',
         paddingVertical: 10,
+        width: '100%',
     },
     chapterContainer: { marginBottom: 30 },
     chapterHeader: {

@@ -20,7 +20,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.cliente.readflow",
+      "package": "com.juliana.florecillas",
       "permissions": [
         "INTERNET",
         "ACCESS_NETWORK_STATE"
@@ -34,7 +34,11 @@
     "plugins": [
       "expo-router",
       "expo-asset",
-      "expo-font"
+      "expo-font",
+      "react-native-google-mobile-ads"{
+        "androidAppId": "ca-app-pub-2263615536540210~9197678569",
+        "userTrackingUsageDescription": "Esta app utiliza identificadores para ofrecer publicidad personalizada."
+      }
     ],
     "extra": {
       "router": {},
