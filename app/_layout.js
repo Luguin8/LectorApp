@@ -1,10 +1,13 @@
+import { useEffect } from 'react';
 import { Stack } from 'expo-router';
-// 1. Importamos el Provider
+import * as SplashScreen from 'expo-splash-screen';
 import { ReaderProvider } from '../context/ReaderContext';
+
+// Prevenir que el splash se oculte automáticamente
+SplashScreen.preventAutoHideAsync();
 
 export default function Layout() {
     return (
-        // 2. Envolvemos la navegación
         <ReaderProvider>
             <Stack
                 screenOptions={{
@@ -18,7 +21,7 @@ export default function Layout() {
                 }}
             >
                 <Stack.Screen name="index" options={{ title: 'Biblioteca' }} />
-                {/* Aquí la pantalla del lector recibirá configuración extra después */}
+                <Stack.Screen name="privacy" options={{ title: 'Política de Privacidad' }} />
             </Stack>
         </ReaderProvider>
     );

@@ -3,9 +3,9 @@
     "name": "Florecillas de San Francisco",
     "slug": "florecillas-ebook",
     "version": "1.1.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": false,
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -26,7 +26,13 @@
         "ACCESS_NETWORK_STATE"
       ],
       "edgeToEdgeEnabled": true,
-      "versionCode": 10
+      "versionCode": 11,
+      "blockedPermissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.VIBRATE"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -40,7 +46,8 @@
         {
           "androidAppId": "ca-app-pub-2263615536540210~9197678569",
           "iosAppId": "ca-app-pub-2263615536540210~9197678569",
-          "userTrackingUsageDescription": "Esta app utiliza identificadores para ofrecer publicidad personalizada."
+          "userTrackingUsageDescription": "Esta aplicación utiliza identificadores para mostrar publicidad. Tus datos no se comparten con terceros sin tu consentimiento.",
+          "skAdNetworkItems": []
         }
       ]
     ],

@@ -1,6 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 
 const ReaderContext = createContext();
@@ -14,38 +13,42 @@ const TEXT_ALIGN_KEY = 'florecillas_text_align';
 export const ReaderProvider = ({ children }) => {
     const [theme, setTheme] = useState('day');
     const [fontSize, setFontSize] = useState(18);
-    // CAMBIO: Default a 'left' para máxima compatibilidad
     const [textAlign, setTextAlign] = useState('left');
-    const [fontFamily, setFontFamily] = useState('System');
     const [isReady, setIsReady] = useState(false);
     const [lastChapter, setLastChapter] = useState(null);
     const [bookmarks, setBookmarks] = useState({});
 
-    const [fontsLoaded] = useFonts({
-        // Aquí podrías cargar fuentes custom si tuvieras
-    });
-
     useEffect(() => {
         loadSettings();
-    }, [fontsLoaded]);
+    }, []);
 
     const loadSettings = async () => {
         try {
-            const savedTheme = await AsyncStorage.getItem(THEME_KEY);
-            const savedFontSize = await AsyncStorage.getItem(FONT_SIZE_KEY);
-            const savedChapter = await AsyncStorage.getItem(LAST_CHAPTER_KEY);
-            const savedBookmarks = await AsyncStorage.getItem(BOOKMARKS_KEY);
-            const savedTextAlign = await AsyncStorage.getItem(TEXT_ALIGN_KEY);
+            const [
+                savedTheme,
+                savedFontSize,
+                savedChapter,
+                savedBookmarks,
+                savedTextAlign
+            ] = await Promise.all([
+                AsyncStorage.getItem(THEME_KEY),
+                AsyncStorage.getItem(FONT_SIZE_KEY),
+                AsyncStorage.getItem(LAST_CHAPTER_KEY),
+                AsyncStorage.getItem(BOOKMARKS_KEY),
+                AsyncStorage.getItem(TEXT_ALIGN_KEY),
+            ]);
 
             if (savedTheme) setTheme(savedTheme);
             if (savedFontSize) setFontSize(parseFloat(savedFontSize));
-            if (savedChapter) setLastChapter(JSON.parse(savedChapter));
-            if (savedBookmarks) setBookmarks(JSON.parse(savedBookmarks));
-            // Si existe guardado, lo usamos, si no, se queda en 'left'
+            if (savedChapter) {
+                try { setLastChapter(JSON.parse(savedChapter)); } catch (_) { }
+            }
+            if (savedBookmarks) {
+                try { setBookmarks(JSON.parse(savedBookmarks)); } catch (_) { }
+            }
             if (savedTextAlign) setTextAlign(savedTextAlign);
-
         } catch (e) {
-            console.error("Error cargando settings", e);
+            // Si no se pueden cargar los settings, continuamos con los defaults
         } finally {
             setIsReady(true);
             await SplashScreen.hideAsync();
@@ -59,22 +62,19 @@ export const ReaderProvider = ({ children }) => {
     };
 
     const toggleTextAlign = async () => {
-        // Alternamos entre izquierda y justificado
         const newAlign = textAlign === 'justify' ? 'left' : 'justify';
         setTextAlign(newAlign);
         await AsyncStorage.setItem(TEXT_ALIGN_KEY, newAlign);
     };
 
     const changeFontSize = async (action) => {
-        let newSize = fontSize;
-        if (action === 'increase') newSize += 2;
-        if (action === 'decrease') newSize -= 2;
-
-        if (newSize < 12) newSize = 12;
-        if (newSize > 34) newSize = 34;
-
-        setFontSize(newSize);
-        await AsyncStorage.setItem(FONT_SIZE_KEY, newSize.toString());
+        setFontSize(prev => {
+            let newSize = prev;
+            if (action === 'increase') newSize = Math.min(prev + 2, 34);
+            if (action === 'decrease') newSize = Math.max(prev - 2, 12);
+            AsyncStorage.setItem(FONT_SIZE_KEY, newSize.toString());
+            return newSize;
+        });
     };
 
     const saveProgress = async (bookId, chapterIndex) => {
@@ -84,24 +84,23 @@ export const ReaderProvider = ({ children }) => {
     };
 
     const toggleBookmark = async (bookId, chapterIndex) => {
-        const newBookmarks = { ...bookmarks };
-        if (!newBookmarks[bookId]) newBookmarks[bookId] = [];
-
-        if (newBookmarks[bookId].includes(chapterIndex)) {
-            newBookmarks[bookId] = newBookmarks[bookId].filter(i => i !== chapterIndex);
-        } else {
-            newBookmarks[bookId].push(chapterIndex);
-        }
-
-        setBookmarks(newBookmarks);
-        await AsyncStorage.setItem(BOOKMARKS_KEY, JSON.stringify(newBookmarks));
+        setBookmarks(prev => {
+            const updated = { ...prev };
+            if (!updated[bookId]) updated[bookId] = [];
+            if (updated[bookId].includes(chapterIndex)) {
+                updated[bookId] = updated[bookId].filter(i => i !== chapterIndex);
+            } else {
+                updated[bookId] = [...updated[bookId], chapterIndex];
+            }
+            AsyncStorage.setItem(BOOKMARKS_KEY, JSON.stringify(updated));
+            return updated;
+        });
     };
 
     return (
         <ReaderContext.Provider value={{
             theme,
             fontSize,
-            fontFamily,
             textAlign,
             toggleTextAlign,
             isReady,
@@ -110,7 +109,7 @@ export const ReaderProvider = ({ children }) => {
             toggleTheme,
             changeFontSize,
             saveProgress,
-            toggleBookmark
+            toggleBookmark,
         }}>
             {children}
         </ReaderContext.Provider>

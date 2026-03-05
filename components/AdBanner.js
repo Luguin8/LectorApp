@@ -1,15 +1,27 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { View } from 'react-native';
 import { BannerAd, BannerAdSize } from 'react-native-google-mobile-ads';
 
-// Exportamos las constantes de tamaño para poder usarlas fuera
 export { BannerAdSize };
 
 export default function AdBanner({ unitId, size }) {
+    const [adFailed, setAdFailed] = useState(false);
+
+    if (adFailed) {
+        // Si el ad falla, no mostramos nada (no rompe el layout)
+        return null;
+    }
+
     return (
-        <BannerAd
-            unitId={unitId}
-            size={size || BannerAdSize.BANNER}
-            requestOptions={{ requestNonPersonalizedAdsOnly: true }}
-        />
+        <View>
+            <BannerAd
+                unitId={unitId}
+                size={size || BannerAdSize.BANNER}
+                requestOptions={{
+                    requestNonPersonalizedAdsOnly: false,
+                }}
+                onAdFailedToLoad={() => setAdFailed(true)}
+            />
+        </View>
     );
 }

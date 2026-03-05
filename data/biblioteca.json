@@ -1,9 +1,9 @@
 [
     {
         "id": "libro1",
-        "title": "Florecillas",
-        "author": "San Francisco",
+        "title": "Florecillas de San Francisco",
+        "author": "San Francisco de Asís",
         "filename": "libro1.txt",
-        "coverColor": "#4A90E2"
+        "coverColor": "#691a35"
     }
 ]
