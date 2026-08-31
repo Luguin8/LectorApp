@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View, FlatList, TouchableOpacity, useWindowDimensions } from 'react-native';
-import { Link, router } from 'expo-router';
+import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useReader } from '../context/ReaderContext';
 import books from '../data/biblioteca.json';
@@ -32,36 +32,36 @@ export default function Home() {
                 keyExtractor={(item) => item.id}
                 contentContainerStyle={styles.listContent}
                 renderItem={({ item }) => (
-                    <Link href={`/reader/${item.id}`} asChild style={{ flex: numColumns > 1 ? 1 : undefined }}>
-                        <TouchableOpacity
-                            style={[
-                                styles.bookItem,
-                                {
-                                    backgroundColor: colors.card,
-                                    borderColor: colors.cardBorder,
-                                    margin: numColumns > 1 ? 8 : 0,
-                                    marginBottom: numColumns > 1 ? 8 : 12,
-                                }
-                            ]}
-                            activeOpacity={0.75}
-                        >
-                            <View style={[styles.coverPlaceholder, { backgroundColor: item.coverColor }]}>
-                                <Ionicons name="book" size={22} color="rgba(255,255,255,0.8)" />
+                    <TouchableOpacity
+                        onPress={() => router.push(`/reader/${item.id}`)}
+                        style={StyleSheet.flatten([
+                            styles.bookItem,
+                            {
+                                flex: numColumns > 1 ? 1 : undefined,
+                                backgroundColor: colors.card,
+                                borderColor: colors.cardBorder,
+                                margin: numColumns > 1 ? 8 : 0,
+                                marginBottom: numColumns > 1 ? 8 : 12,
+                            }
+                        ])}
+                        activeOpacity={0.75}
+                    >
+                        <View style={[styles.coverPlaceholder, { backgroundColor: item.coverColor }]}>
+                            <Ionicons name="book" size={22} color="rgba(255,255,255,0.8)" />
+                        </View>
+                        <View style={styles.bookInfo}>
+                            <Text style={[styles.bookTitle, { color: colors.text }]} numberOfLines={2}>
+                                {item.title}
+                            </Text>
+                            <Text style={[styles.bookAuthor, { color: colors.subtext }]}>
+                                {item.author}
+                            </Text>
+                            <View style={[styles.readBadge, { borderColor: colors.primary }]}>
+                                <Text style={[styles.readBadgeText, { color: colors.primary }]}>Leer libro</Text>
+                                <Ionicons name="arrow-forward" size={12} color={colors.primary} style={{ marginLeft: 4 }} />
                             </View>
-                            <View style={styles.bookInfo}>
-                                <Text style={[styles.bookTitle, { color: colors.text }]} numberOfLines={2}>
-                                    {item.title}
-                                </Text>
-                                <Text style={[styles.bookAuthor, { color: colors.subtext }]}>
-                                    {item.author}
-                                </Text>
-                                <View style={[styles.readBadge, { borderColor: colors.primary }]}>
-                                    <Text style={[styles.readBadgeText, { color: colors.primary }]}>Leer libro</Text>
-                                    <Ionicons name="arrow-forward" size={12} color={colors.primary} style={{ marginLeft: 4 }} />
-                                </View>
-                            </View>
-                        </TouchableOpacity>
-                    </Link>
+                        </View>
+                    </TouchableOpacity>
                 )}
                 ListHeaderComponent={() => (
                     <View style={styles.headerContainer}>
